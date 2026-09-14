@@ -394,13 +394,6 @@ export type Database = {
       buy_plan: { Args: { p_plan_id: string }; Returns: string }
       complete_task: { Args: { p_investment_id: string }; Returns: number }
       distribute_daily_profits: { Args: never; Returns: number }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
       request_withdrawal: {
         Args: {
           p_method: string
