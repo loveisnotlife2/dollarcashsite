@@ -14,16 +14,414 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daily_profits: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          investment_id: string
+          profit_date: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          investment_id: string
+          profit_date?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          investment_id?: string
+          profit_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_profits_investment_id_fkey"
+            columns: ["investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deposits: {
+        Row: {
+          created_at: string
+          id: string
+          method: string
+          pkr_amount: number
+          rate: number
+          reject_reason: string | null
+          screenshot_url: string | null
+          status: string
+          tid: string
+          usd_amount: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          method: string
+          pkr_amount: number
+          rate: number
+          reject_reason?: string | null
+          screenshot_url?: string | null
+          status?: string
+          tid: string
+          usd_amount: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          method?: string
+          pkr_amount?: number
+          rate?: number
+          reject_reason?: string | null
+          screenshot_url?: string | null
+          status?: string
+          tid?: string
+          usd_amount?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      investments: {
+        Row: {
+          activated_at: string
+          expires_at: string
+          id: string
+          plan_id: string
+          status: string
+          total_earned: number
+          user_id: string
+        }
+        Insert: {
+          activated_at?: string
+          expires_at: string
+          id?: string
+          plan_id: string
+          status?: string
+          total_earned?: number
+          user_id: string
+        }
+        Update: {
+          activated_at?: string
+          expires_at?: string
+          id?: string
+          plan_id?: string
+          status?: string
+          total_earned?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_methods: {
+        Row: {
+          account_number: string
+          account_title: string
+          id: string
+          is_active: boolean
+          method: string
+          qr_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_number?: string
+          account_title?: string
+          id?: string
+          is_active?: boolean
+          method: string
+          qr_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string
+          account_title?: string
+          id?: string
+          is_active?: boolean
+          method?: string
+          qr_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          cost: number
+          daily_return: number
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          total_return: number
+          validity_days: number
+        }
+        Insert: {
+          cost: number
+          daily_return: number
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          total_return: number
+          validity_days?: number
+        }
+        Update: {
+          cost?: number
+          daily_return?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          total_return?: number
+          validity_days?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          balance: number
+          banned: boolean
+          created_at: string
+          email: string | null
+          id: string
+          referral_code: string
+          referred_by: string | null
+          username: string | null
+        }
+        Insert: {
+          balance?: number
+          banned?: boolean
+          created_at?: string
+          email?: string | null
+          id: string
+          referral_code: string
+          referred_by?: string | null
+          username?: string | null
+        }
+        Update: {
+          balance?: number
+          banned?: boolean
+          created_at?: string
+          email?: string | null
+          id?: string
+          referral_code?: string
+          referred_by?: string | null
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          bonus_amount: number
+          bonus_paid: boolean
+          created_at: string
+          id: string
+          referred_id: string
+          referrer_id: string
+        }
+        Insert: {
+          bonus_amount?: number
+          bonus_paid?: boolean
+          created_at?: string
+          id?: string
+          referred_id: string
+          referrer_id: string
+        }
+        Update: {
+          bonus_amount?: number
+          bonus_paid?: boolean
+          created_at?: string
+          id?: string
+          referred_id?: string
+          referrer_id?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          key: string
+          value: string
+        }
+        Insert: {
+          key: string
+          value: string
+        }
+        Update: {
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      task_completions: {
+        Row: {
+          created_at: string
+          id: string
+          investment_id: string
+          reward: number
+          task_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          investment_id: string
+          reward?: number
+          task_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          investment_id?: string
+          reward?: number
+          task_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_completions_investment_id_fkey"
+            columns: ["investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawals: {
+        Row: {
+          account_number: string
+          account_title: string
+          created_at: string
+          id: string
+          method: string
+          reject_reason: string | null
+          status: string
+          usd_amount: number
+          user_id: string
+        }
+        Insert: {
+          account_number: string
+          account_title: string
+          created_at?: string
+          id?: string
+          method: string
+          reject_reason?: string | null
+          status?: string
+          usd_amount: number
+          user_id: string
+        }
+        Update: {
+          account_number?: string
+          account_title?: string
+          created_at?: string
+          id?: string
+          method?: string
+          reject_reason?: string | null
+          status?: string
+          usd_amount?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_expire_investment: { Args: { p_id: string }; Returns: undefined }
+      admin_review_deposit: {
+        Args: { p_approve: boolean; p_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      admin_review_withdrawal: {
+        Args: { p_approve: boolean; p_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      admin_set_balance: {
+        Args: { p_balance: number; p_user: string }
+        Returns: undefined
+      }
+      admin_set_banned: {
+        Args: { p_banned: boolean; p_user: string }
+        Returns: undefined
+      }
+      admin_stats: { Args: never; Returns: Json }
+      bootstrap_profile: {
+        Args: { p_ref_code?: string; p_username?: string }
+        Returns: undefined
+      }
+      buy_plan: { Args: { p_plan_id: string }; Returns: string }
+      complete_task: { Args: { p_investment_id: string }; Returns: number }
+      distribute_daily_profits: { Args: never; Returns: number }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      request_withdrawal: {
+        Args: {
+          p_method: string
+          p_number: string
+          p_title: string
+          p_usd: number
+        }
+        Returns: string
+      }
+      submit_deposit: {
+        Args: {
+          p_method: string
+          p_screenshot_url: string
+          p_tid: string
+          p_usd: number
+        }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +548,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
