@@ -1,181 +1,160 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
-
-import { Logo } from "@/components/Logo";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 
-const searchSchema = z.object({ ref: z.string().optional() });
-
 export const Route = createFileRoute("/auth")({
-  validateSearch: searchSchema,
-  head: () => ({
-    meta: [
-      { title: "Sign in or register — DollarCash" },
-      {
-        name: "description",
-        content:
-          "Create your DollarCash account or sign in to manage your plans, daily tasks, deposits and withdrawals.",
-      },
-      { property: "og:title", content: "Sign in or register — DollarCash" },
-      {
-        property: "og:description",
-        content: "Access your DollarCash wallet, plans and daily task rewards.",
-      },
-    ],
-  }),
   component: AuthPage,
 });
 
 function AuthPage() {
-  const { ref } = Route.useSearch();
-  const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
-  const [email, setEmail] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [refCode, setRefCode] = useState(ref ?? "");
-  const [busy, setBusy] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (ref) window.localStorage.setItem("dc-ref", ref);
-    else {
-      const stored = window.localStorage.getItem("dc-ref");
-      if (stored) setRefCode(stored);
-    }
-  }, [ref]);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/dashboard", replace: true });
-    });
-  }, [navigate]);
-
-  async function submit(e: React.FormEvent) {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
+    setLoading(true);
+
+    const cleanPhone = phone.trim().replace(/\s+/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error("Please enter a valid mobile number (e.g. 03001234567)");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      setLoading(false);
+      return;
+    }
+
+    // Convert phone number to internal auth email
+    const internalEmail = `${cleanPhone}@dollarcash.site`;
+
     try {
-      if (mode === "signup") {
+      if (isSignUp) {
         const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
+          email: internalEmail,
+          password: password,
+          options: {
+            data: {
+              full_name: fullName.trim() || cleanPhone,
+              phone_number: cleanPhone,
+            },
+          },
         });
+
         if (error) throw error;
-        if (!data.session) {
-          toast.success("Account created. Check your email to confirm, then sign in.");
-          setMode("signin");
-          return;
+
+        // Auto sign in immediately after registration
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email: internalEmail,
+          password: password,
+        });
+
+        if (signInErr) {
+          toast.success("Account created! Please sign in with your phone and password.");
+          setIsSignUp(false);
+        } else {
+          toast.success("Account created successfully!");
+          void navigate({ to: "/dashboard" });
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
+        const { error } = await supabase.auth.signInWithPassword({
+          email: internalEmail,
+          password: password,
+        });
 
-      const { error: bootErr } = await supabase.rpc("bootstrap_profile", {
-        p_username: username || null,
-        p_ref_code: refCode || null,
-      });
-      if (bootErr) throw bootErr;
-      window.localStorage.removeItem("dc-ref");
-      toast.success("Welcome to DollarCash");
-      navigate({ to: "/dashboard", replace: true });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+        if (error) {
+          if (error.message.includes("Invalid login credentials")) {
+            throw new Error("Incorrect Phone Number or Password.");
+          }
+          throw error;
+        }
+
+        toast.success("Welcome back!");
+        void navigate({ to: "/dashboard" });
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Authentication failed");
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-        <Link to="/">
-          <Logo />
-        </Link>
-        <ThemeToggle />
-      </header>
-
-      <div className="mx-auto max-w-md px-4 pb-16 pt-6">
-        <div className="surface-card p-6">
-          <h1 className="font-display text-2xl font-bold">
-            {mode === "signup" ? "Create your account" : "Welcome back"}
-          </h1>
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="surface-card w-full max-w-md p-6 sm:p-8">
+        <div className="text-center">
+          <h1 className="font-display text-2xl font-bold">DollarCash</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signup"
-              ? "Register with your email to start earning daily."
-              : "Sign in to your DollarCash wallet."}
+            {isSignUp ? "Create a new account with Mobile Number" : "Sign in to your account"}
           </p>
+        </div>
 
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            {mode === "signup" ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="yourname"
-                  autoComplete="nickname"
-                />
-              </div>
-            ) : null}
+        <form onSubmit={handleAuth} className="mt-6 space-y-4">
+          {isSignUp && (
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="fullName">Full Name</Label>
               <Input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
+                id="fullName"
+                type="text"
+                placeholder="Nadeem Khan"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required={isSignUp}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              />
-            </div>
-            {mode === "signup" ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="refcode">Referral code (optional)</Label>
-                <Input
-                  id="refcode"
-                  value={refCode}
-                  onChange={(e) => setRefCode(e.target.value.toUpperCase())}
-                  placeholder="ABC12345"
-                />
-              </div>
-            ) : null}
+          )}
 
-            <Button type="submit" className="w-full" size="lg" disabled={busy}>
-              {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
-            </Button>
-          </form>
+          <div className="space-y-1.5">
+            <Label htmlFor="phone">Mobile Number</Label>
+            <Input
+              id="phone"
+              type="text"
+              placeholder="03001234567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
+          </div>
 
+          <div className="space-y-1.5">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            {loading ? "Processing..." : isSignUp ? "Register Now" : "Sign In"}
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center text-sm">
           <button
             type="button"
-            onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
-            className="mt-5 w-full text-sm text-muted-foreground underline-offset-4 hover:underline"
+            className="text-primary hover:underline"
+            onClick={() => setIsSignUp(!isSignUp)}
           >
-            {mode === "signup"
-              ? "Already registered? Sign in instead"
-              : "New here? Create an account"}
+            {isSignUp
+              ? "Already have an account? Sign In"
+              : "Don't have an account? Register with Mobile Number"}
           </button>
         </div>
       </div>
     </div>
   );
-}
+          }
