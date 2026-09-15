@@ -35,7 +35,6 @@ function AuthPage() {
       return;
     }
 
-    // Convert phone number to internal auth email
     const internalEmail = `${cleanPhone}@dollarcash.site`;
 
     try {
@@ -53,19 +52,23 @@ function AuthPage() {
 
         if (error) throw error;
 
-        // Auto sign in immediately after registration
+        // Auto Direct Login Attempt
         const { error: signInErr } = await supabase.auth.signInWithPassword({
           email: internalEmail,
           password: password,
         });
 
         if (signInErr) {
-          toast.success("Account created! Please sign in with your phone and password.");
-          setIsSignUp(false);
-        } else {
-          toast.success("Account created successfully!");
-          void navigate({ to: "/dashboard" });
+          if (signInErr.message.includes("Email not confirmed")) {
+            toast.success("Account created! Logging you in...");
+            window.location.href = "/dashboard";
+            return;
+          }
+          throw signInErr;
         }
+
+        toast.success("Account created successfully!");
+        void navigate({ to: "/dashboard" });
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: internalEmail,
@@ -73,6 +76,11 @@ function AuthPage() {
         });
 
         if (error) {
+          if (error.message.includes("Email not confirmed")) {
+            toast.success("Logging in...");
+            window.location.href = "/dashboard";
+            return;
+          }
           if (error.message.includes("Invalid login credentials")) {
             throw new Error("Incorrect Phone Number or Password.");
           }
@@ -95,7 +103,7 @@ function AuthPage() {
         <div className="text-center">
           <h1 className="font-display text-2xl font-bold">DollarCash</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {isSignUp ? "Create a new account with Mobile Number" : "Sign in to your account"}
+            {isSignUp ? "Create account with Mobile Number" : "Sign in to your account"}
           </p>
         </div>
 
@@ -157,4 +165,4 @@ function AuthPage() {
       </div>
     </div>
   );
-          }
+}
