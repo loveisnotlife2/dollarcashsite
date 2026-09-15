@@ -1,154 +1,187 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CalendarClock, Coins, TrendingUp, Users } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Check, X, ShieldAlert, ArrowLeft, RefreshCw, Layers } from "lucide-react";
+import { toast } from "sonner";
 
-import { AppShell } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { daysLeft, isActive, useInvestments, useProfile, usd } from "@/lib/dollarcash";
+import { usd } from "@/lib/dollarcash";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
-  component: Dashboard,
+export const Route = createFileRoute("/_authenticated/admin")({
+  component: AdminPage,
 });
 
-function Dashboard() {
-  const { data: profile } = useProfile();
-  const { data: investments = [] } = useInvestments();
+function AdminPage() {
+  const queryClient = useQueryClient();
+  const [customRate, setCustomRate] = useState("280");
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const { data: referralStats } = useQuery({
-    queryKey: ["referral-stats"],
+  const { data: deposits = [], isLoading: loadingDeposits } = useQuery({
+    queryKey: ["admin-deposits"],
     queryFn: async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) return { count: 0, earned: 0 };
       const { data, error } = await supabase
-        .from("referrals")
-        .select("bonus_paid, bonus_amount")
-        .eq("referrer_id", auth.user.id);
-      if (error) throw error;
-      const rows = data ?? [];
-      return {
-        count: rows.length,
-        earned: rows
-          .filter((r) => r.bonus_paid)
-          .reduce((sum, r) => sum + Number(r.bonus_amount), 0),
-      };
+        .from("deposits")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) return [];
+      return data ?? [];
     },
   });
 
-  const { data: earnedTotal } = useQuery({
-    queryKey: ["earned-total"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("daily_profits").select("amount");
-      if (error) throw error;
-      return (data ?? []).reduce((s, r) => s + Number(r.amount), 0);
-    },
-  });
+  const handleUpdateStatus = async (table: "deposits" | "withdrawals", id: string, status: "APPROVED" | "REJECTED") => {
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from(table)
+        .update({ status })
+        .eq("id", id);
 
-  const active = investments.filter(isActive);
+      if (error) throw error;
+      toast.success(`Request marked as ${status}`);
+      void queryClient.invalidateQueries();
+    } catch (err: any) {
+      toast.error(err.message || "Action failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateRate = () => {
+    localStorage.setItem("dollarcash_rate", customRate);
+    toast.success(`Exchange rate set to 1 USD = ${customRate} PKR`);
+  };
 
   return (
-    <AppShell title={`Hi ${profile?.username ?? "there"}`} subtitle="Your earning overview">
-      <div className="gradient-hero mb-5 rounded-2xl p-5 text-navy-foreground">
-        <p className="text-xs uppercase tracking-wider text-white/70">Main balance</p>
-        <p className="mt-1 font-display text-4xl font-extrabold">{usd(profile?.balance)}</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button asChild variant="secondary" size="sm">
-            <Link to="/deposit">Deposit</Link>
-          </Button>
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className="border-white/40 bg-transparent text-navy-foreground hover:bg-white/10"
-          >
-            <Link to="/withdraw">Withdraw</Link>
-          </Button>
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6">
+      {/* Admin Independent Header */}
+      <div className="max-w-6xl mx-auto flex items-center justify-between pb-6 border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          <a href="/dashboard" className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white">
+            <ArrowLeft className="size-5" />
+          </a>
+          <div>
+            <h1 className="text-xl font-bold flex items-center gap-2 text-amber-400">
+              <ShieldAlert className="size-5" /> DollarCash Admin Panel
+            </h1>
+            <p className="text-xs text-slate-400">Superpower Manual Controls</p>
+          </div>
         </div>
+        <Badge variant="outline" className="border-amber-500/40 text-amber-400">
+          Root Access
+        </Badge>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={TrendingUp} label="Active plans" value={String(active.length)} />
-        <Stat icon={Coins} label="Daily profit earned" value={usd(earnedTotal ?? 0)} />
-        <Stat icon={Users} label="Referrals" value={String(referralStats?.count ?? 0)} />
-        <Stat icon={Coins} label="Referral earnings" value={usd(referralStats?.earned ?? 0)} />
-      </div>
-
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-lg font-bold">My plans</h2>
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/plans">
-            Buy a plan <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-      </div>
-
-      {investments.length === 0 ? (
-        <div className="surface-card p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            You have no plans yet. Activate a plan to start earning daily and unlock daily tasks.
-          </p>
-          <Button asChild className="mt-4">
-            <Link to="/plans">View plans</Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {investments.map((inv) => {
-            const total = inv.plans?.validity_days ?? 15;
-            const left = daysLeft(inv.expires_at);
-            const done = Math.min(total, total - left);
-            return (
-              <div key={inv.id} className="surface-card p-4">
-                <div className="flex items-center justify-between">
-                  <p className="font-display font-bold">{inv.plans?.name}</p>
-                  {isActive(inv) ? (
-                    <Badge className="bg-primary/15 text-primary">ACTIVE</Badge>
-                  ) : (
-                    <Badge variant="secondary">EXPIRED</Badge>
-                  )}
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {usd(inv.plans?.daily_return)} daily · earned {usd(inv.total_earned)}
-                </p>
-                <Progress className="mt-3" value={(done / total) * 100} />
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CalendarClock className="size-3.5" />
-                  {isActive(inv)
-                    ? `${left} of ${total} days left · expires ${new Date(inv.expires_at).toLocaleDateString()}`
-                    : `Expired on ${new Date(inv.expires_at).toLocaleDateString()}`}
-                </p>
+      <div className="max-w-6xl mx-auto mt-6 space-y-6">
+        {/* Control Cards */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Exchange Rate Controller */}
+          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+            <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-300">
+              <RefreshCw className="size-4 text-emerald-400" /> PKR Exchange Rate Override
+            </h2>
+            <div className="mt-4 flex gap-2">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs text-slate-400">1 USD = PKR</Label>
+                <Input
+                  type="number"
+                  value={customRate}
+                  onChange={(e) => setCustomRate(e.target.value)}
+                  className="bg-slate-950 border-slate-800"
+                />
               </div>
-            );
-          })}
+              <Button className="self-end bg-emerald-600 hover:bg-emerald-500" onClick={handleUpdateRate}>
+                Save Rate
+              </Button>
+            </div>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-center">
+            <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-300">
+              <Layers className="size-4 text-amber-400" /> System Notice
+            </h2>
+            <p className="mt-2 text-xs text-slate-400">
+              Approved deposits will instantly update backend state. Make sure transaction TIDs match EasyPaisa records before clicking Approve.
+            </p>
+          </div>
         </div>
-      )}
 
-      <div className="surface-card mt-6 p-4 text-sm text-muted-foreground">
-        Daily returns are credited automatically every night at 12:00 AM Pakistan time for each
-        active plan.
+        {/* Deposit Approval Table */}
+        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <h2 className="text-md font-bold mb-4">Pending & Recent Deposits</h2>
+          {loadingDeposits ? (
+            <p className="text-sm text-slate-400">Loading deposits...</p>
+          ) : deposits.length === 0 ? (
+            <p className="text-sm text-slate-400">No deposit requests recorded yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-800 text-xs uppercase text-slate-400">
+                  <tr>
+                    <th className="py-2">User / TID</th>
+                    <th className="py-2">Amount</th>
+                    <th className="py-2">Method</th>
+                    <th className="py-2">Status</th>
+                    <th className="py-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {deposits.map((d: any) => (
+                    <tr key={d.id}>
+                      <td className="py-3">
+                        <div className="font-semibold">{d.user_id?.slice(0, 8)}...</div>
+                        <div className="text-xs text-slate-400">TID: {d.tid}</div>
+                      </td>
+                      <td className="py-3 font-semibold">
+                        {usd(d.usd_amount)} <span className="text-xs text-slate-400">(Rs {d.pkr_amount})</span>
+                      </td>
+                      <td className="py-3">{d.method}</td>
+                      <td className="py-3">
+                        <Badge
+                          className={
+                            d.status === "APPROVED"
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                              : d.status === "REJECTED"
+                              ? "bg-rose-500/20 text-rose-400 border-rose-500/30"
+                              : "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                          }
+                        >
+                          {d.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 text-right">
+                        {d.status === "PENDING" && (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                              disabled={actionLoading}
+                              onClick={() => handleUpdateStatus("deposits", d.id, "APPROVED")}
+                            >
+                              <Check className="size-4" /> Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={actionLoading}
+                              onClick={() => handleUpdateStatus("deposits", d.id, "REJECTED")}
+                            >
+                              <X className="size-4" /> Reject
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
-    </AppShell>
-  );
-}
-
-function Stat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Coins;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="surface-card p-4">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="size-4" />
-      </span>
-      <p className="mt-3 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="font-display text-xl font-bold">{value}</p>
     </div>
   );
 }
