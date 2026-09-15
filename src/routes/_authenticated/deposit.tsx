@@ -21,13 +21,43 @@ function DepositPage() {
   const { data: rate = 280 } = useRate();
   const queryClient = useQueryClient();
 
+const activeMethods = methods.filter((m) => m.is_active);
+import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Copy, Upload } from "lucide-react";
+import { toast } from "sonner";
+
+import { AppShell } from "@/components/AppShell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { usePaymentMethods, useRate, usd } from "@/lib/dollarcash";
+
+export const Route = createFileRoute("/_authenticated/deposit")({
+  component: DepositPage,
+});
+
+function DepositPage() {
+  const { data: methods = [] } = usePaymentMethods();
+  const { data: rate = 280 } = useRate();
+  const queryClient = useQueryClient();
+
   const activeMethods = methods.filter((m) => m.is_active);
-  const [method, setMethod] = useState<string>("");
+
+  // Hardcoded EasyPaisa details fallback
+  const currentPayment = {
+    method: "EasyPaisa",
+    account_title: "Quratulain",
+    account_number: "03151390564",
+  };
+
+  const [method, setMethod] = useState<string>("EasyPaisa");
   const [amount, setAmount] = useState("");
   const [tid, setTid] = useState("");
   const [file, setFile] = useState<File | null>(null);
-
-  const selected = activeMethods.find((m) => m.method === (method || activeMethods[0]?.method));
 
   const { data: history = [] } = useQuery({
     queryKey: ["my-deposits"],
@@ -46,7 +76,6 @@ function DepositPage() {
     mutationFn: async () => {
       const usdAmount = Number(amount);
       if (!usdAmount || usdAmount <= 0) throw new Error("Enter a valid USD amount");
-      if (!selected) throw new Error("No payment method available");
       if (!tid.trim()) throw new Error("Enter the transaction ID (TID)");
 
       let screenshotUrl: string | null = null;
@@ -60,7 +89,7 @@ function DepositPage() {
 
       const { error } = await supabase.rpc("submit_deposit", {
         p_usd: usdAmount,
-        p_method: selected.method,
+        p_method: currentPayment.method,
         p_tid: tid.trim(),
         p_screenshot_url: screenshotUrl,
       });
@@ -103,63 +132,38 @@ function DepositPage() {
             <div className="space-y-1.5">
               <Label>Payment method</Label>
               <div className="flex gap-2">
-                {activeMethods.map((m) => (
-                  <Button
-                    key={m.id}
-                    type="button"
-                    variant={selected?.method === m.method ? "default" : "outline"}
-                    onClick={() => setMethod(m.method)}
-                  >
-                    {m.method}
-                  </Button>
-                ))}
+                <Button type="button" variant="default">
+                  EasyPaisa
+                </Button>
               </div>
             </div>
           </div>
 
-          {selected ? (
-            <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
-              <h3 className="font-display text-sm font-bold">2. Send payment to</h3>
-              <dl className="mt-2 space-y-1.5 text-sm">
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Account title</dt>
-                  <dd className="font-semibold">{selected.account_title}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="text-muted-foreground">Account number</dt>
-                  <dd className="flex items-center gap-2 font-semibold">
-                    {selected.account_number}
-                    <button
-                      type="button"
-                      aria-label="Copy account number"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(selected.account_number);
-                        toast.success("Account number copied");
-                      }}
-                    >
-                      <Copy className="size-4 text-primary" />
-                    </button>
-                  </dd>
-                </div>
-              </dl>
-              {selected.qr_url ? (
-                <img
-                  src={selected.qr_url}
-                  alt={`${selected.method} payment QR code`}
-                  loading="lazy"
-                  className="mt-3 size-40 rounded-lg border border-border bg-white p-2"
-                />
-              ) : (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  QR code not set by admin yet — use the account number above.
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="mt-5 text-sm text-muted-foreground">
-              No payment method is active right now. Please try again later.
-            </p>
-          )}
+          <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
+            <h3 className="font-display text-sm font-bold">2. Send payment to</h3>
+            <dl className="mt-2 space-y-1.5 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Account title</dt>
+                <dd className="font-semibold">{currentPayment.account_title}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-muted-foreground">Account number</dt>
+                <dd className="flex items-center gap-2 font-semibold">
+                  {currentPayment.account_number}
+                  <button
+                    type="button"
+                    aria-label="Copy account number"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(currentPayment.account_number);
+                      toast.success("Account number copied");
+                    }}
+                  >
+                    <Copy className="size-4 text-primary" />
+                  </button>
+                </dd>
+              </div>
+            </dl>
+          </div>
 
           <div className="mt-5 space-y-4">
             <h3 className="font-display text-sm font-bold">3. Submit proof</h3>
@@ -217,8 +221,10 @@ function DepositPage() {
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status: status: string }) {
   if (status === "APPROVED") return <Badge className="bg-primary/15 text-primary">APPROVED</Badge>;
   if (status === "REJECTED") return <Badge variant="destructive">REJECTED</Badge>;
   return <Badge className="bg-gold/20 text-gold-foreground dark:text-gold">PENDING</Badge>;
 }
+  
+            
