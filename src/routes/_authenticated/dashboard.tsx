@@ -15,13 +15,11 @@ import {
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
-import { StatCard } from "@/components/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { usd } from "@/lib/dollarcash";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -62,7 +60,6 @@ function DashboardPage() {
     },
   });
 
-  // Deposit Status Handler
   const handleUpdateStatus = async (id: string, status: "APPROVED" | "REJECTED") => {
     setActionLoading(true);
     try {
@@ -85,6 +82,8 @@ function DashboardPage() {
     localStorage.setItem("dollarcash_rate", customRate);
     toast.success(`Exchange rate set to 1 USD = ${customRate} PKR`);
   };
+
+  const formatUsd = (val?: number | null) => `$${Number(val || 0).toFixed(2)}`;
 
   return (
     <AppShell 
@@ -114,7 +113,7 @@ function DashboardPage() {
         {/* ADMIN VIEW MODE */}
         {isAdminView ? (
           <div className="space-y-6">
-            <div className="surface-card p-5">
+            <div className="surface-card p-5 border border-border rounded-xl">
               <h2 className="flex items-center gap-2 font-display text-lg font-bold">
                 <RefreshCw className="size-5 text-emerald-500" /> Exchange Rate Override
               </h2>
@@ -134,7 +133,7 @@ function DashboardPage() {
               </div>
             </div>
 
-            <div className="surface-card p-5">
+            <div className="surface-card p-5 border border-border rounded-xl">
               <h2 className="font-display text-lg font-bold mb-4">Deposit Requests Approval</h2>
               {loadingDeposits ? (
                 <p className="text-sm text-muted-foreground">Loading deposits...</p>
@@ -160,7 +159,7 @@ function DashboardPage() {
                             <div className="text-xs text-muted-foreground">TID: {d.tid}</div>
                           </td>
                           <td className="py-3 font-semibold">
-                            {usd(d.usd_amount ?? 0)} <span className="text-xs text-muted-foreground">(Rs {d.pkr_amount ?? 0})</span>
+                            {formatUsd(d.usd_amount)} <span className="text-xs text-muted-foreground">(Rs {d.pkr_amount})</span>
                           </td>
                           <td className="py-3">{d.method}</td>
                           <td className="py-3">
@@ -210,32 +209,51 @@ function DashboardPage() {
           /* REGULAR USER DASHBOARD VIEW */
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard
-                title="Total Balance"
-                value={usd(profile?.balance ?? 0)}
-                icon={Wallet}
-              />
-              <StatCard
-                title="Total Earnings"
-                value={usd(profile?.total_earned ?? 0)}
-                icon={TrendingUp}
-              />
-              <StatCard
-                title="Active Plan"
-                value={profile?.active_plan_id ? "Active" : "No Plan"}
-                icon={DollarSign}
-              />
-              <StatCard
-                title="Referrals"
-                value={String(profile?.referral_count ?? 0)}
-                icon={Users}
-              />
+              <div className="surface-card p-5 border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total Balance</p>
+                  <h3 className="text-2xl font-bold mt-1">{formatUsd(profile?.balance)}</h3>
+                </div>
+                <div className="p-3 bg-primary/10 rounded-lg text-primary">
+                  <Wallet className="size-5" />
+                </div>
+              </div>
+
+              <div className="surface-card p-5 border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total Earnings</p>
+                  <h3 className="text-2xl font-bold mt-1">{formatUsd(profile?.total_earned)}</h3>
+                </div>
+                <div className="p-3 bg-emerald-500/10 rounded-lg text-emerald-500">
+                  <TrendingUp className="size-5" />
+                </div>
+              </div>
+
+              <div className="surface-card p-5 border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Active Plan</p>
+                  <h3 className="text-2xl font-bold mt-1">{profile?.active_plan_id ? "Active" : "No Plan"}</h3>
+                </div>
+                <div className="p-3 bg-amber-500/10 rounded-lg text-amber-500">
+                  <DollarSign className="size-5" />
+                </div>
+              </div>
+
+              <div className="surface-card p-5 border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Referrals</p>
+                  <h3 className="text-2xl font-bold mt-1">{profile?.referral_count ?? 0}</h3>
+                </div>
+                <div className="p-3 bg-blue-500/10 rounded-lg text-blue-500">
+                  <Users className="size-5" />
+                </div>
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <a
                 href="/deposit"
-                className="surface-card p-5 hover:border-primary/50 transition-colors flex items-center justify-between"
+                className="surface-card p-5 border border-border rounded-xl hover:border-primary/50 transition-colors flex items-center justify-between"
               >
                 <div>
                   <h3 className="font-bold text-lg">Deposit Funds</h3>
@@ -246,7 +264,7 @@ function DashboardPage() {
 
               <a
                 href="/withdraw"
-                className="surface-card p-5 hover:border-primary/50 transition-colors flex items-center justify-between"
+                className="surface-card p-5 border border-border rounded-xl hover:border-primary/50 transition-colors flex items-center justify-between"
               >
                 <div>
                   <h3 className="font-bold text-lg">Withdraw Earnings</h3>
@@ -260,5 +278,4 @@ function DashboardPage() {
       </div>
     </AppShell>
   );
-    }
-                    
+}
