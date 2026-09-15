@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDepositRouteImport } from './routes/_authenticated/deposit'
 import { Route as AuthenticatedPlansRouteImport } from './routes/_authenticated/plans'
+import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated/referrals'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedWithdrawRouteImport } from './routes/_authenticated/withdraw'
 
@@ -47,6 +48,11 @@ const AuthenticatedPlansRoute = AuthenticatedPlansRouteImport.update({
   path: '/plans',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedReferralsRoute = AuthenticatedReferralsRouteImport.update({
+  id: '/referrals',
+  path: '/referrals',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/deposit': typeof AuthenticatedDepositRoute
   '/plans': typeof AuthenticatedPlansRoute
+  '/referrals': typeof AuthenticatedReferralsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/withdraw': typeof AuthenticatedWithdrawRoute
 }
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/deposit': typeof AuthenticatedDepositRoute
   '/plans': typeof AuthenticatedPlansRoute
+  '/referrals': typeof AuthenticatedReferralsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/withdraw': typeof AuthenticatedWithdrawRoute
 }
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/deposit': typeof AuthenticatedDepositRoute
   '/_authenticated/plans': typeof AuthenticatedPlansRoute
+  '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/withdraw': typeof AuthenticatedWithdrawRoute
 }
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/deposit'
     | '/plans'
+    | '/referrals'
     | '/tasks'
     | '/withdraw'
   fileRoutesByTo: FileRoutesByTo
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/deposit'
     | '/plans'
+    | '/referrals'
     | '/tasks'
     | '/withdraw'
   id:
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/deposit'
     | '/_authenticated/plans'
+    | '/_authenticated/referrals'
     | '/_authenticated/tasks'
     | '/_authenticated/withdraw'
   fileRoutesById: FileRoutesById
@@ -168,6 +180,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPlansRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/referrals': {
+      id: '/_authenticated/referrals'
+      path: '/referrals'
+      fullPath: '/referrals'
+      preLoaderRoute: typeof AuthenticatedReferralsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/tasks': {
       id: '/_authenticated/tasks'
       path: '/tasks'
@@ -189,6 +208,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDepositRoute: typeof AuthenticatedDepositRoute
   AuthenticatedPlansRoute: typeof AuthenticatedPlansRoute
+  AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedWithdrawRoute: typeof AuthenticatedWithdrawRoute
 }
@@ -197,6 +217,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDepositRoute: AuthenticatedDepositRoute,
   AuthenticatedPlansRoute: AuthenticatedPlansRoute,
+  AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedWithdrawRoute: AuthenticatedWithdrawRoute,
 }
