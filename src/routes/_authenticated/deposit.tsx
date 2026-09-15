@@ -21,30 +21,6 @@ function DepositPage() {
   const { data: rate = 280 } = useRate();
   const queryClient = useQueryClient();
 
-const activeMethods = methods.filter((m) => m.is_active);
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Copy, Upload } from "lucide-react";
-import { toast } from "sonner";
-
-import { AppShell } from "@/components/AppShell";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
-import { usePaymentMethods, useRate, usd } from "@/lib/dollarcash";
-
-export const Route = createFileRoute("/_authenticated/deposit")({
-  component: DepositPage,
-});
-
-function DepositPage() {
-  const { data: methods = [] } = usePaymentMethods();
-  const { data: rate = 280 } = useRate();
-  const queryClient = useQueryClient();
-
   const activeMethods = methods.filter((m) => m.is_active);
 
   // Hardcoded EasyPaisa details fallback
@@ -221,10 +197,8 @@ function DepositPage() {
   );
 }
 
-export function StatusBadge({ status }: { status: status: string }) {
+export function StatusBadge({ status }: { status: string }) {
   if (status === "APPROVED") return <Badge className="bg-primary/15 text-primary">APPROVED</Badge>;
   if (status === "REJECTED") return <Badge variant="destructive">REJECTED</Badge>;
   return <Badge className="bg-gold/20 text-gold-foreground dark:text-gold">PENDING</Badge>;
 }
-  
-            
