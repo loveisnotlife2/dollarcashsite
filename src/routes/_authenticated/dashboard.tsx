@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { usd } from "@/lib/dollarcash";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -84,8 +85,6 @@ function DashboardPage() {
     localStorage.setItem("dollarcash_rate", customRate);
     toast.success(`Exchange rate set to 1 USD = ${customRate} PKR`);
   };
-
-  const formatUsd = (val: number) => `$${Number(val || 0).toFixed(2)}`;
 
   return (
     <AppShell 
@@ -161,7 +160,7 @@ function DashboardPage() {
                             <div className="text-xs text-muted-foreground">TID: {d.tid}</div>
                           </td>
                           <td className="py-3 font-semibold">
-                            {formatUsd(d.usd_amount)} <span className="text-xs text-muted-foreground">(Rs {d.pkr_amount})</span>
+                            {usd(d.usd_amount ?? 0)} <span className="text-xs text-muted-foreground">(Rs {d.pkr_amount ?? 0})</span>
                           </td>
                           <td className="py-3">{d.method}</td>
                           <td className="py-3">
@@ -213,12 +212,12 @@ function DashboardPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 title="Total Balance"
-                value={formatUsd(profile?.balance)}
+                value={usd(profile?.balance ?? 0)}
                 icon={Wallet}
               />
               <StatCard
                 title="Total Earnings"
-                value={formatUsd(profile?.total_earned)}
+                value={usd(profile?.total_earned ?? 0)}
                 icon={TrendingUp}
               />
               <StatCard
@@ -228,7 +227,7 @@ function DashboardPage() {
               />
               <StatCard
                 title="Referrals"
-                value={profile?.referral_count ?? 0}
+                value={String(profile?.referral_count ?? 0)}
                 icon={Users}
               />
             </div>
@@ -261,4 +260,5 @@ function DashboardPage() {
       </div>
     </AppShell>
   );
-}
+    }
+                    
