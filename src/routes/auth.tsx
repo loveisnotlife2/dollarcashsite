@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +63,7 @@ function AuthPage() {
         }
 
         toast.success("Account created successfully!");
-        await navigate({ to: "/dashboard" });
+        window.location.assign("/dashboard");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: internalEmail,
@@ -79,7 +78,7 @@ function AuthPage() {
         }
 
         toast.success("Welcome back!");
-        await navigate({ to: "/dashboard" });
+        window.location.assign("/dashboard");
       }
     } catch (err: any) {
       toast.error(err.message || "Authentication failed");
