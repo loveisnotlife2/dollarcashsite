@@ -39,7 +39,7 @@ function AuthPage() {
 
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email: internalEmail,
           password: password,
           options: {
@@ -50,37 +50,25 @@ function AuthPage() {
           },
         });
 
-        if (error) throw error;
+        if (error && !error.message.includes("Email not confirmed")) {
+          throw error;
+        }
 
-        // Auto Direct Login Attempt
-        const { error: signInErr } = await supabase.auth.signInWithPassword({
+        // Auto Direct Login
+        await supabase.auth.signInWithPassword({
           email: internalEmail,
           password: password,
         });
 
-        if (signInErr) {
-          if (signInErr.message.includes("Email not confirmed")) {
-            toast.success("Account created! Logging you in...");
-            window.location.href = "/dashboard";
-            return;
-          }
-          throw signInErr;
-        }
-
         toast.success("Account created successfully!");
-        void navigate({ to: "/dashboard" });
+        window.location.href = "/";
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: internalEmail,
           password: password,
         });
 
-        if (error) {
-          if (error.message.includes("Email not confirmed")) {
-            toast.success("Logging in...");
-            window.location.href = "/dashboard";
-            return;
-          }
+        if (error && !error.message.includes("Email not confirmed")) {
           if (error.message.includes("Invalid login credentials")) {
             throw new Error("Incorrect Phone Number or Password.");
           }
@@ -88,7 +76,7 @@ function AuthPage() {
         }
 
         toast.success("Welcome back!");
-        void navigate({ to: "/dashboard" });
+        window.location.href = "/";
       }
     } catch (err: any) {
       toast.error(err.message || "Authentication failed");
@@ -165,4 +153,4 @@ function AuthPage() {
       </div>
     </div>
   );
-}
+          }
