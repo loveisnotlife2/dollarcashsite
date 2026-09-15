@@ -24,7 +24,7 @@ function AuthPage() {
 
     const cleanPhone = phone.trim().replace(/\s+/g, "");
     if (!cleanPhone || cleanPhone.length < 10) {
-      toast.error("Please enter a valid mobile number (e.g. 03001234567)");
+      toast.error("Please enter a valid mobile number");
       setLoading(false);
       return;
     }
@@ -39,7 +39,7 @@ function AuthPage() {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email: internalEmail,
           password: password,
           options: {
@@ -50,18 +50,21 @@ function AuthPage() {
           },
         });
 
-        if (error && !error.message.includes("Email not confirmed")) {
-          throw error;
+        if (signUpError && !signUpError.message.includes("Email not confirmed")) {
+          throw signUpError;
         }
 
-        // Auto Direct Login
-        await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email: internalEmail,
           password: password,
         });
 
+        if (signInError && !signInError.message.includes("Email not confirmed")) {
+          throw signInError;
+        }
+
         toast.success("Account created successfully!");
-        window.location.href = "/";
+        await navigate({ to: "/dashboard" });
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: internalEmail,
@@ -76,7 +79,7 @@ function AuthPage() {
         }
 
         toast.success("Welcome back!");
-        window.location.href = "/";
+        await navigate({ to: "/dashboard" });
       }
     } catch (err: any) {
       toast.error(err.message || "Authentication failed");
@@ -153,4 +156,4 @@ function AuthPage() {
       </div>
     </div>
   );
-          }
+}
