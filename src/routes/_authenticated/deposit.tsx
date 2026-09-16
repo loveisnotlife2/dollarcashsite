@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,30 +14,66 @@ export const Route = createFileRoute("/_authenticated/deposit")({
 
 export function DepositPage() {
   const [tid, setTid] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [amount, setAmount] = useState("");
+  const [easypaisaNo, setEasypaisaNo] = useState("Loading...");
   const [myDeposits, setMyDeposits] = useState<any[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
-  const easypaisaNo = localStorage.getItem("dc_ep_no") || "03133221347";
+  // Fetch Payment Info & My Deposits
+  const loadDepositData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
 
-  const handleSubmit = (e: React.FormEvent) => {
+    // Fetch EasyPaisa Number from Settings
+    const { data: settings } = await supabase.from("settings").select("easypaisa_number").eq("id", true).single();
+    if (settings) setEasypaisaNo(settings.easypaisa_number);
+
+    // Fetch User's Own Deposits
+    if (user) {
+      const { data: deposits } = await supabase
+        .from("deposits")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (deposits) setMyDeposits(deposits);
+    }
+  };
+
+  useEffect(() => {
+    loadDepositData();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tid) {
-      toast.error("Please enter Transaction ID (TID)");
+    if (!tid || !amount) {
+      toast.error("Transaction ID aur Amount dono zaroori hain!");
       return;
     }
 
-    const newDeposit = {
-      id: `dep_${Date.now()}`,
-      tid,
-      method: "EasyPaisa",
-      status: "PENDING",
-      created_at: new Date().toLocaleTimeString(),
-    };
+    setSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Aap logged in nahi hain");
 
-    setMyDeposits([newDeposit, ...myDeposits]);
-    toast.success("Deposit request submitted successfully!");
-    setTid("");
-    setFile(null);
+      const { error } = await supabase.from("deposits").insert({
+        user_id: user.id,
+        amount: parseFloat(amount),
+        method: "easypaisa",
+        transaction_id: tid,
+        status: "pending"
+      });
+
+      if (error) throw error;
+
+      toast.success("Deposit request successfully submit ho gayi!");
+      setTid("");
+      setAmount("");
+      loadDepositData();
+    } catch (err: any) {
+      toast.error("Submit nahi ho saka: " + err.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -51,24 +88,26 @@ export function DepositPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Transaction ID (TID)</Label>
+              <Label>Amount (USD)</Label>
               <Input 
-                value={tid} 
-                onChange={(e) => setTid(e.target.value)} 
-                placeholder="Enter 11 digit TID" 
+                type="number"
+                value={amount} 
+                onChange={(e) => setAmount(e.target.value)} 
+                placeholder="Enter amount (e.g. 10)" 
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Payment Screenshot</Label>
+              <Label>Transaction ID (TID)</Label>
               <Input 
-                type="file" 
-                onChange={(e) => setFile(e.target.files?.[0] || null)} 
+                value={tid} 
+                onChange={(e) => setTid(e.target.value)} 
+                placeholder="Enter TID number" 
               />
             </div>
 
-            <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">
-              Submit Deposit Request
+            <Button disabled={submitting} type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">
+              {submitting ? "Submitting..." : "Submit Deposit Request"}
             </Button>
           </form>
         </div>
@@ -82,10 +121,10 @@ export function DepositPage() {
               {myDeposits.map((d) => (
                 <div key={d.id} className="flex justify-between items-center text-xs p-2 bg-muted/30 rounded">
                   <div>
-                    <p className="font-bold">TID: {d.tid}</p>
-                    <p className="text-muted-foreground">{d.created_at}</p>
+                    <p className="font-bold">${d.amount} - TID: {d.transaction_id}</p>
+                    <p className="text-muted-foreground">{new Date(d.created_at).toLocaleString()}</p>
                   </div>
-                  <Badge variant="outline">{d.status}</Badge>
+                  <Badge variant="outline" className="capitalize">{d.status}</Badge>
                 </div>
               ))}
             </div>
@@ -94,4 +133,4 @@ export function DepositPage() {
       </div>
     </AppShell>
   );
-            }
+}
