@@ -399,4 +399,4 @@ export function DashboardPage() {
       </div>
     </AppShell>
   );
-                  }
+}
