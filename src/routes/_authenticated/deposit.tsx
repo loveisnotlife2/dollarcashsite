@@ -1,136 +1,236 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
 
-export const Route = createFileRoute("/_authenticated/deposit")({
+export const Route = createFileRoute(
+  "/_authenticated/deposit"
+)({
   component: DepositPage,
 });
 
 export function DepositPage() {
-  const [tid, setTid] = useState("");
   const [amount, setAmount] = useState("");
-  const [easypaisaNo, setEasypaisaNo] = useState("Loading...");
-  const [myDeposits, setMyDeposits] = useState<any[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [method, setMethod] = useState("easypaisa");
+  const [transactionId, setTransactionId] =
+    useState("");
+  const [senderAccount, setSenderAccount] =
+    useState("");
 
-  // Fetch Payment Info & My Deposits
-  const loadDepositData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+  const [easypaisaNo, setEasypaisaNo] =
+    useState("03133221347");
+  const [jazzcashNo, setJazzcashNo] =
+    useState("03133221347");
 
-    // Fetch EasyPaisa Number from Settings
-    const { data: settings } = await supabase.from("settings").select("easypaisa_number").eq("id", true).single();
-    if (settings) setEasypaisaNo(settings.easypaisa_number);
-
-    // Fetch User's Own Deposits
-    if (user) {
-      const { data: deposits } = await supabase
-        .from("deposits")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (deposits) setMyDeposits(deposits);
-    }
-  };
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadDepositData();
+    loadSettings();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tid || !amount) {
-      toast.error("Transaction ID aur Amount dono zaroori hain!");
+  async function loadSettings() {
+    const { data, error } = await supabase
+      .from("settings")
+      .select("easypaisa_number,jazzcash_number")
+      .eq("id", true)
+      .single();
+
+    if (error) {
+      console.error(error);
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Aap logged in nahi hain");
+    setEasypaisaNo(data.easypaisa_number);
+    setJazzcashNo(data.jazzcash_number);
+  }
 
-      const { error } = await supabase.from("deposits").insert({
-        user_id: user.id,
-        amount: parseFloat(amount),
-        method: "easypaisa",
-        transaction_id: tid,
-        status: "pending"
-      });
+  async function submitDeposit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
 
-      if (error) throw error;
+    const numericAmount = Number(amount);
 
-      toast.success("Deposit request successfully submit ho gayi!");
-      setTid("");
-      setAmount("");
-      loadDepositData();
-    } catch (err: any) {
-      toast.error("Submit nahi ho saka: " + err.message);
-    } finally {
-      setSubmitting(false);
+    if (!numericAmount || numericAmount <= 0) {
+      toast.error("Enter a valid amount.");
+      return;
     }
-  };
+
+    if (!transactionId.trim()) {
+      toast.error("Enter transaction ID.");
+      return;
+    }
+
+    if (!senderAccount.trim()) {
+      toast.error("Enter your sending account.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error("Please login again.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("deposits")
+        .insert({
+          user_id: user.id,
+          amount: numericAmount,
+          method,
+          transaction_id: transactionId.trim(),
+          sender_account: senderAccount.trim(),
+          status: "pending",
+        });
+
+      if (error) {
+        console.error(error);
+        toast.error(error.message);
+        return;
+      }
+
+      toast.success(
+        "Deposit submitted. Waiting for admin approval."
+      );
+
+      setAmount("");
+      setTransactionId("");
+      setSenderAccount("");
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Deposit submission failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const receivingAccount =
+    method === "easypaisa"
+      ? easypaisaNo
+      : jazzcashNo;
 
   return (
-    <AppShell title="Deposit" subtitle="Add funds to your wallet">
-      <div className="max-w-md mx-auto space-y-6">
-        <div className="surface-card p-5 border border-border rounded-xl space-y-4">
-          <Badge className="bg-emerald-700">EasyPaisa</Badge>
-          <div className="p-3 bg-muted/40 rounded-lg">
-            <p className="text-xs text-muted-foreground">Account title: Quratulain</p>
-            <p className="font-bold text-lg">{easypaisaNo}</p>
+    <AppShell title="Deposit">
+
+      <div className="max-w-xl mx-auto">
+
+        <form
+          onSubmit={submitDeposit}
+          className="surface-card border rounded-xl p-6 space-y-5"
+        >
+
+          <div>
+            <h2 className="text-xl font-bold">
+              Make Deposit
+            </h2>
+
+            <p className="text-sm text-muted-foreground mt-1">
+              Send payment to the account below and submit
+              your transaction details.
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Amount (USD)</Label>
-              <Input 
-                type="number"
-                value={amount} 
-                onChange={(e) => setAmount(e.target.value)} 
-                placeholder="Enter amount (e.g. 10)" 
-              />
-            </div>
+          <div className="border rounded-lg p-4">
+            <p className="text-sm text-muted-foreground">
+              Payment Account
+            </p>
 
-            <div className="space-y-1.5">
-              <Label>Transaction ID (TID)</Label>
-              <Input 
-                value={tid} 
-                onChange={(e) => setTid(e.target.value)} 
-                placeholder="Enter TID number" 
-              />
-            </div>
+            <p className="font-bold text-lg">
+              {receivingAccount}
+            </p>
 
-            <Button disabled={submitting} type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">
-              {submitting ? "Submitting..." : "Submit Deposit Request"}
-            </Button>
-          </form>
-        </div>
+            <p className="text-sm mt-1">
+              {method === "easypaisa"
+                ? "EasyPaisa"
+                : "JazzCash"}
+            </p>
+          </div>
 
-        <div className="surface-card p-5 border border-border rounded-xl">
-          <h3 className="font-bold mb-3">My Deposits</h3>
-          {myDeposits.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No deposits yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {myDeposits.map((d) => (
-                <div key={d.id} className="flex justify-between items-center text-xs p-2 bg-muted/30 rounded">
-                  <div>
-                    <p className="font-bold">${d.amount} - TID: {d.transaction_id}</p>
-                    <p className="text-muted-foreground">{new Date(d.created_at).toLocaleString()}</p>
-                  </div>
-                  <Badge variant="outline" className="capitalize">{d.status}</Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          <div>
+            <Label>Payment Method</Label>
+
+            <select
+              value={method}
+              onChange={(e) =>
+                setMethod(e.target.value)
+              }
+              className="w-full border rounded-md p-2 mt-1 bg-background"
+            >
+              <option value="easypaisa">
+                EasyPaisa
+              </option>
+
+              <option value="jazzcash">
+                JazzCash
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <Label>Amount</Label>
+
+            <Input
+              type="number"
+              min="1"
+              step="0.01"
+              value={amount}
+              onChange={(e) =>
+                setAmount(e.target.value)
+              }
+              placeholder="Enter amount"
+            />
+          </div>
+
+          <div>
+            <Label>Transaction ID / TID</Label>
+
+            <Input
+              value={transactionId}
+              onChange={(e) =>
+                setTransactionId(e.target.value)
+              }
+              placeholder="Enter transaction ID"
+            />
+          </div>
+
+          <div>
+            <Label>Your Sending Account</Label>
+
+            <Input
+              value={senderAccount}
+              onChange={(e) =>
+                setSenderAccount(e.target.value)
+              }
+              placeholder="03XXXXXXXXX"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full"
+          >
+            {loading
+              ? "Submitting..."
+              : "Submit Deposit"}
+          </Button>
+
+        </form>
+
       </div>
+
     </AppShell>
   );
 }
