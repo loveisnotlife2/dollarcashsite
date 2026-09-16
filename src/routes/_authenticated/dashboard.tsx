@@ -53,19 +53,19 @@ export function DashboardPage() {
   const profile = userData?.profile;
   const userObj = userData?.user;
 
-    // Strict Authorized Numbers List
-  const ALLOWED_ADMINS = ["03133221347", "+923133221347", "923133221347"];
+  // Extract Mobile/Phone Safely
+  const rawUserPhone = String(
+    userObj?.phone || profile?.phone || profile?.mobile || ""
+  ).replace(/\D/g, ""); // Strips all spaces, +, dashes
 
-  // Normalize phone numbers to prevent false matches
-  const rawUserPhone = (userObj?.phone || profile?.phone || profile?.mobile || "").trim();
+  // STRICT PHONE LOCK: Sirf 03133221347 / 923133221347 wale mobile number par match hoga
+  const isAuthorizedPhone = 
+    rawUserPhone.length >= 10 && rawUserPhone.endsWith("3133221347");
 
-  // Strict Phone Match Check
-  const isAuthorizedPhone = rawUserPhone !== "" && ALLOWED_ADMINS.some((num) => rawUserPhone.includes(num));
+  // Admin access strictly locked
+  const isAdminUser = isAuthorizedPhone || Boolean(profile?.is_admin === true);
 
-  // FORCE ADMIN FOR YOUR SPECIFIC USER ID / EMAIL OR PHONE
-  const isAdminUser = isAuthorizedPhone || Boolean(profile?.is_admin === true) || userObj?.id === profile?.id;
-  
-  // Admin Queries: Deposits, Withdrawals & Users with Plans
+  // Admin Queries
   const { data: deposits = [], isLoading: loadingDeposits } = useQuery({
     queryKey: ["admin-deposits"],
     enabled: isAdminView && isAdminUser,
@@ -166,7 +166,7 @@ export function DashboardPage() {
       subtitle={isAdminView && isAdminUser ? "Superpower Controls Active" : "Welcome to DollarCash"}
     >
       <div className="space-y-6">
-        {/* SIRF STRICT ADMINS KO BUTTON DIKHAYEGA */}
+        {/* SIRF APKE MOBILE NUMBER KO HI BUTTON DIKHAYEGA */}
         {isAdminUser && (
           <div className="flex justify-end">
             <Button
@@ -399,5 +399,4 @@ export function DashboardPage() {
       </div>
     </AppShell>
   );
-  }
-    
+                  }
