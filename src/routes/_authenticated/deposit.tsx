@@ -67,7 +67,7 @@ function DepositPage() {
         p_usd: usdAmount,
         p_method: currentPayment.method,
         p_tid: tid.trim(),
-        p_screenshot_url: screenshotUrl,
+        p_screenshot_url: screenshotUrl ?? "",
       });
       if (error) throw error;
     },
