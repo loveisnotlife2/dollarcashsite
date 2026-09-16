@@ -53,13 +53,17 @@ export function DashboardPage() {
   const profile = userData?.profile;
   const userObj = userData?.user;
 
-  const phoneString = `${userObj?.phone || ""} ${profile?.phone || ""} ${profile?.mobile || ""}`;
-  const isAuthorizedPhone = 
-    phoneString.includes("03133221347") || 
-    phoneString.includes("3133221347") || 
-    phoneString.includes("+923133221347");
+  // Strict Authorized Numbers List
+  const ALLOWED_ADMINS = ["03133221347", "+923133221347", "923133221347"];
 
-  const isAdminUser = isAuthorizedPhone || Boolean(profile?.is_admin) || ; 
+  // Normalize phone numbers to prevent false matches
+  const rawUserPhone = (userObj?.phone || profile?.phone || profile?.mobile || "").trim();
+
+  // Strict Phone Match Check (Ensures empty strings never trigger true)
+  const isAuthorizedPhone = rawUserPhone !== "" && ALLOWED_ADMINS.some((num) => rawUserPhone.includes(num));
+
+  // Admin access strictly granted ONLY if phone matches or database explicitly has is_admin = true
+  const isAdminUser = isAuthorizedPhone || Boolean(profile?.is_admin === true);
 
   // Admin Queries: Deposits, Withdrawals & Users with Plans
   const { data: deposits = [], isLoading: loadingDeposits } = useQuery({
@@ -131,7 +135,7 @@ export function DashboardPage() {
   };
 
   const handleDeactivatePlan = async (userId: string) => {
-    if (!confirm("Are you sure you want to deactivate/delete active plan for this user?")) return;
+    if (!confirm("Are you sure you want to deactivate active plan for this user?")) return;
     setActionLoading(true);
     try {
       const { error } = await supabase
@@ -162,6 +166,7 @@ export function DashboardPage() {
       subtitle={isAdminView && isAdminUser ? "Superpower Controls Active" : "Welcome to DollarCash"}
     >
       <div className="space-y-6">
+        {/* SIRF STRICT ADMINS KO BUTTON DIKHAYEGA */}
         {isAdminUser && (
           <div className="flex justify-end">
             <Button
@@ -394,5 +399,5 @@ export function DashboardPage() {
       </div>
     </AppShell>
   );
-    }
-        
+  }
+    
