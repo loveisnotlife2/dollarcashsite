@@ -59,7 +59,7 @@ export function DashboardPage() {
     phoneString.includes("3133221347") || 
     phoneString.includes("+923133221347");
 
-  const isAdminUser = isAuthorizedPhone || Boolean(profile?.is_admin) || true; 
+  const isAdminUser = isAuthorizedPhone || Boolean(profile?.is_admin) || ; 
 
   // Admin Queries: Deposits, Withdrawals & Users with Plans
   const { data: deposits = [], isLoading: loadingDeposits } = useQuery({
