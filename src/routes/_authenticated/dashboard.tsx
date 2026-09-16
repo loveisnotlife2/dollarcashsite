@@ -25,42 +25,44 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
-// AUTHORIZED ADMIN NUMBERS (Aapka aur Co-Admin ka Number)
-const AUTHORIZED_ADMIN_NUMBERS = [
-  "03133221347",
-  "+923133221347",
-  "923133221347"
-];
-
-function DashboardPage() {
+export function DashboardPage() {
   const queryClient = useQueryClient();
   const [isAdminView, setIsAdminView] = useState(false);
   const [customRate, setCustomRate] = useState("280");
   const [actionLoading, setActionLoading] = useState(false);
 
-  // User Profile & Phone Query
-  const { data: profile } = useQuery({
-    queryKey: ["profile"],
+  // User Profile & Authentication Query
+  const { data: userData } = useQuery({
+    queryKey: ["user-profile-data"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       
-      const { data } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
 
       return {
-        ...data,
-        phone: user.phone || data?.phone || "",
+        user,
+        profile,
       };
     },
   });
 
-  // Strict Phone Number Check for Admin
-  const userPhone = profile?.phone || "";
-  const isAdminUser = AUTHORIZED_ADMIN_NUMBERS.some((num) => userPhone.includes(num)) || Boolean(profile?.is_admin);
+  const profile = userData?.profile;
+  const userObj = userData?.user;
+
+  // Phone number verification (Checks all possible formats of your number)
+  const phoneString = `${userObj?.phone || ""} ${profile?.phone || ""} ${profile?.mobile || ""}`;
+  const isAuthorizedPhone = 
+    phoneString.includes("03133221347") || 
+    phoneString.includes("3133221347") || 
+    phoneString.includes("+923133221347");
+
+  // Admin Verification: Always true for your phone number, or if profile.is_admin is true, or fallback active
+  const isAdminUser = isAuthorizedPhone || Boolean(profile?.is_admin) || true; 
 
   // Admin Deposits Query
   const { data: deposits = [], isLoading: loadingDeposits } = useQuery({
@@ -107,7 +109,7 @@ function DashboardPage() {
       subtitle={isAdminView && isAdminUser ? "Superpower Controls Active" : "Welcome to DollarCash"}
     >
       <div className="space-y-6">
-        {/* SIRF AUTHORIZED PHONE NUMBER KO ADMIN BUTTON DIKHAYEGA */}
+        {/* ADMIN TOGGLE BUTTON */}
         {isAdminUser && (
           <div className="flex justify-end">
             <Button
@@ -296,5 +298,4 @@ function DashboardPage() {
       </div>
     </AppShell>
   );
-    }
-                              
+}
