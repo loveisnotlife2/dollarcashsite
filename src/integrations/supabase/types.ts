@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_phones: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          phone_normalized: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          phone_normalized: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          phone_normalized?: string
+        }
+        Relationships: []
+      }
       daily_profits: {
         Row: {
           amount: number
@@ -199,6 +220,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          phone: string | null
           referral_code: string
           referred_by: string | null
           username: string | null
@@ -209,6 +231,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id: string
+          phone?: string | null
           referral_code: string
           referred_by?: string | null
           username?: string | null
@@ -219,6 +242,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          phone?: string | null
           referral_code?: string
           referred_by?: string | null
           username?: string | null
@@ -392,8 +416,10 @@ export type Database = {
         Returns: undefined
       }
       buy_plan: { Args: { p_plan_id: string }; Returns: string }
+      claim_admin_access: { Args: never; Returns: boolean }
       complete_task: { Args: { p_investment_id: string }; Returns: number }
       distribute_daily_profits: { Args: never; Returns: number }
+      normalize_phone: { Args: { p: string }; Returns: string }
       request_withdrawal: {
         Args: {
           p_method: string
