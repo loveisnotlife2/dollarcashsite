@@ -19,20 +19,33 @@ interface DepositRequest {
 
 function DashboardComponent() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [activeTab, setActiveTab] = useState<"home" | "plans" | "tasks" | "deposit" | "withdraw" | "refer">("home");
+  
+  // Admin Control
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Dynamic Dollar Rate State
+  // Dynamic Dollar Rate
   const [dollarRate, setDollarRate] = useState<number>(280);
   const [newRateInput, setNewRateInput] = useState<string>("280");
 
   const [copiedAccount, setCopiedAccount] = useState("");
+  const [copiedRef, setCopiedRef] = useState(false);
 
-  // Account details
+  // Form States
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositTrxId, setDepositTrxId] = useState("");
+  const [depositSenderName, setDepositSenderName] = useState("");
+  const [depositSenderNumber, setDepositSenderNumber] = useState("");
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawAccount, setWithdrawAccount] = useState("");
+
   const easyPaisaNumber = "03151390564";
   const jazzCashNumber = "03133221347";
+  const referLink = `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=DC78921`;
 
-  // Deposit Requests State
   const [deposits, setDeposits] = useState<DepositRequest[]>([
     {
       id: "DEP-101",
@@ -62,26 +75,38 @@ function DashboardComponent() {
 
   const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 
-  const handleAdminAuth = () => {
+  // Secret Admin Trigger: Clicking DollarCash Logo
+  const handleSecretAdminTrigger = () => {
     if (isAdmin) {
       setShowAdminPanel(!showAdminPanel);
       return;
     }
-    const pin = prompt("Enter Admin PIN Code:");
+    const pin = prompt("Enter Admin PIN:");
     if (pin === "786313") {
       setIsAdmin(true);
       setShowAdminPanel(true);
-      alert("Admin Mode Activated!");
+      alert("Admin Access Granted!");
     } else if (pin) {
-      alert("Wrong PIN!");
+      alert("Incorrect PIN!");
     }
   };
 
   const handleCopy = (text: string, label: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(text);
-      setCopiedAccount(label);
-      setTimeout(() => setCopiedAccount(""), 2000);
+      if (label === "ref") {
+        setCopiedRef(true);
+        setTimeout(() => setCopiedRef(false), 2000);
+      } else {
+        setCopiedAccount(label);
+        setTimeout(() => setCopiedAccount(""), 2000);
+      }
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setScreenshotPreview(URL.createObjectURL(e.target.files[0]));
     }
   };
 
@@ -94,13 +119,39 @@ function DashboardComponent() {
     }
   };
 
+  const handleDepositSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newReq: DepositRequest = {
+      id: `DEP-${Date.now().toString().slice(-4)}`,
+      userPhone: "03133221347",
+      senderName: depositSenderName,
+      senderNumber: depositSenderNumber,
+      amount: depositAmount,
+      trxId: depositTrxId,
+      screenshotUrl: screenshotPreview,
+      status: "pending",
+      date: new Date().toLocaleString(),
+    };
+    setDeposits([newReq, ...deposits]);
+    alert("Deposit request submitted!");
+    setDepositAmount("");
+    setDepositTrxId("");
+    setDepositSenderName("");
+    setDepositSenderNumber("");
+    setScreenshotPreview(null);
+  };
+
   const isDark = theme === "dark";
 
   return (
-    <div className={`min-h-screen font-sans ${isDark ? "bg-[#040814] text-white" : "bg-slate-100 text-slate-900"}`}>
+    <div className={`min-h-screen font-sans pb-10 ${isDark ? "bg-[#040814] text-white" : "bg-slate-100 text-slate-900"}`}>
       {/* Header */}
       <header className="px-4 py-4 flex justify-between items-center border-b border-slate-800/40">
-        <div className="flex items-center gap-2">
+        <div 
+          onClick={handleSecretAdminTrigger}
+          className="flex items-center gap-2 cursor-pointer select-none"
+          title="Click to unlock Admin Mode"
+        >
           <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-slate-950 font-black text-xl">
             $
           </div>
@@ -110,14 +161,6 @@ function DashboardComponent() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Admin Panel Purple Button */}
-          <button
-            onClick={handleAdminAuth}
-            className="px-3 py-1.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1 shadow-lg transition"
-          >
-            🛡️ Admin Panel
-          </button>
-
           {/* Light/Dark Toggle Button */}
           <button
             onClick={toggleTheme}
@@ -128,13 +171,42 @@ function DashboardComponent() {
         </div>
       </header>
 
+      {/* Quick Navigation Tabs (Replacing Bottom Nav) */}
+      <div className="max-w-md mx-auto p-4 pb-0 flex gap-1.5 overflow-x-auto no-scrollbar">
+        {[
+          { id: "home", label: "Dashboard" },
+          { id: "plans", label: "Plans" },
+          { id: "tasks", label: "Tasks" },
+          { id: "deposit", label: "Deposit" },
+          { id: "withdraw", label: "Withdraw" },
+          { id: "refer", label: "Refer" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+              activeTab === tab.id
+                ? "bg-emerald-500 text-slate-950 shadow-md"
+                : "bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Main Container */}
       <main className="max-w-md mx-auto p-4 space-y-4">
-        {/* Admin Panel View (Only opens with PIN 786313) */}
+        {/* Admin Panel (Secretly unlocked via Logo) */}
         {isAdmin && showAdminPanel && (
           <div className="p-4 rounded-2xl border border-amber-500/40 bg-amber-950/10 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-amber-400">🛡️ Admin Dashboard Control</h3>
+              <button onClick={() => setShowAdminPanel(false)} className="text-xs text-slate-400">Close ✕</button>
+            </div>
+
             <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-              <h4 className="text-xs font-bold text-amber-400">💵 Admin Dollar Rate Control</h4>
+              <h4 className="text-xs font-bold text-amber-400">💵 Update Dollar Rate (PKR)</h4>
               <form onSubmit={handleUpdateRate} className="flex gap-2">
                 <input
                   type="number"
@@ -150,7 +222,7 @@ function DashboardComponent() {
               </form>
             </div>
 
-            <h3 className="text-sm font-bold text-amber-400">Pending Deposit Requests</h3>
+            <h4 className="text-xs font-bold text-amber-400">Pending Deposits ({deposits.filter((d) => d.status === "pending").length})</h4>
             {deposits.filter((d) => d.status === "pending").length === 0 ? (
               <p className="text-xs text-slate-400">No pending deposits.</p>
             ) : (
@@ -188,66 +260,167 @@ function DashboardComponent() {
           </div>
         )}
 
-        {/* Main Available Balance Card */}
-        <div className={`p-5 rounded-3xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"} space-y-4`}>
-          <div>
-            <p className="text-xs font-medium text-slate-400">Available Main Balance</p>
-            <h1 className="text-4xl font-black text-emerald-400 mt-1">$0.00</h1>
-            <p className="text-xs text-slate-500 mt-1">≈ 0.00 PKR (1$ = {dollarRate} PKR)</p>
-          </div>
+        {/* HOME / DASHBOARD TAB */}
+        {activeTab === "home" && (
+          <div className="space-y-4">
+            {/* Main Balance Card */}
+            <div className={`p-5 rounded-3xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"} space-y-4`}>
+              <div>
+                <p className="text-xs font-medium text-slate-400">Available Main Balance</p>
+                <h1 className="text-4xl font-black text-emerald-400 mt-1">$0.00</h1>
+                <p className="text-xs text-slate-500 mt-1">≈ 0.00 PKR (1$ = {dollarRate} PKR)</p>
+              </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button className="py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-sm text-white flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/20 active:scale-95 transition">
-              <span>💸</span> Deposit Money
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button onClick={() => setActiveTab("deposit")} className="py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-sm text-white flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition">
+                  <span>💸</span> Deposit Money
+                </button>
+                <button onClick={() => setActiveTab("withdraw")} className="py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 font-extrabold text-sm text-slate-950 flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition">
+                  <span>💸</span> Withdraw Cash
+                </button>
+              </div>
+            </div>
+
+            {/* 2x2 Grid Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+                <p className="text-xs font-semibold text-slate-400">Total Invested</p>
+                <h3 className="text-2xl font-black text-emerald-400 mt-1">$0.00</h3>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+                <p className="text-xs font-semibold text-slate-400">Total Withdrawn</p>
+                <h3 className="text-2xl font-black text-amber-500 mt-1">$0.00</h3>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+                <p className="text-xs font-semibold text-slate-400">Referral Earnings</p>
+                <h3 className="text-2xl font-black text-blue-400 mt-1">$0.00</h3>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+                <p className="text-xs font-semibold text-slate-400">Active Plan</p>
+                <h3 className="text-sm font-bold text-emerald-400 mt-1">No Active Plan</h3>
+                <p className="text-[10px] text-slate-500">Time Left: N/A</p>
+              </div>
+            </div>
+
+            {/* Official Deposit Accounts */}
+            <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"} space-y-3`}>
+              <h4 className="text-xs font-bold text-slate-300">Official EasyPaisa Deposit Account</h4>
+              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <span className="text-sm font-bold text-white tracking-wider">{easyPaisaNumber}</span>
+                <button onClick={() => handleCopy(easyPaisaNumber, "ep")} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">
+                  {copiedAccount === "ep" ? "Copied!" : "Copy"}
+                </button>
+              </div>
+
+              <h4 className="text-xs font-bold text-slate-300 pt-1">Official JazzCash Deposit Account</h4>
+              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <span className="text-sm font-bold text-white tracking-wider">{jazzCashNumber}</span>
+                <button onClick={() => handleCopy(jazzCashNumber, "jc")} className="px-3 py-1 bg-amber-500 text-slate-950 rounded-lg text-xs font-bold">
+                  {copiedAccount === "jc" ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PLANS TAB */}
+        {activeTab === "plans" && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-300">Investment Plans (15 Days Duration)</h2>
+            {[
+              { name: "Plan 1", cost: "$1.00", daily: "$0.15", total: "$2.25" },
+              { name: "Plan 2", cost: "$2.00", daily: "$0.25", total: "$3.75" },
+              { name: "Plan 3", cost: "$5.00", daily: "$0.50", total: "$7.50" },
+              { name: "Plan 4", cost: "$10.00", daily: "$1.00", total: "$15.00" },
+            ].map((plan, idx) => (
+              <div key={idx} className={`p-4 rounded-2xl border space-y-2 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-emerald-400">{plan.name}</h3>
+                  <span className="text-xs font-black text-white">{plan.cost}</span>
+                </div>
+                <div className="text-xs text-slate-400 flex justify-between">
+                  <span>Daily Return: {plan.daily}</span>
+                  <span>Total Profit: {plan.total}</span>
+                </div>
+                <button onClick={() => setActiveTab("deposit")} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold text-white transition">
+                  Activate Plan
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* TASKS TAB */}
+        {activeTab === "tasks" && (
+          <div className={`p-5 rounded-2xl border text-center space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+            <h2 className="text-base font-bold">Daily Tasks ($0.15 Reward)</h2>
+            <p className="text-xs text-slate-400">🔒 Active investment plan is required to unlock daily tasks.</p>
+            <button onClick={() => setActiveTab("plans")} className="px-4 py-2.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl">
+              Buy Plan to Unlock
             </button>
-            <button className="py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 font-extrabold text-sm text-slate-950 flex items-center justify-center gap-1.5 shadow-lg shadow-amber-900/20 active:scale-95 transition">
-              <span>💸</span> Withdraw Cash
-            </button>
           </div>
-        </div>
+        )}
 
-        {/* 2x2 Grid Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-            <p className="text-xs font-semibold text-slate-400">Total Invested</p>
-            <h3 className="text-2xl font-black text-emerald-400 mt-1">$0.00</h3>
-          </div>
+        {/* DEPOSIT TAB */}
+        {activeTab === "deposit" && (
+          <form onSubmit={handleDepositSubmit} className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+            <h2 className="text-base font-bold text-emerald-400">Deposit Funds</h2>
+            <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 flex justify-between">
+              <span>Current Rate:</span>
+              <span className="font-bold">1 USD = {dollarRate} PKR</span>
+            </div>
+            <input type="text" placeholder="Sender Name" required value={depositSenderName} onChange={(e) => setDepositSenderName(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+            <input type="text" placeholder="Sender Number" required value={depositSenderNumber} onChange={(e) => setDepositSenderNumber(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+            <input type="number" placeholder="Amount ($)" required value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+            <input type="text" placeholder="TRX ID" required value={depositTrxId} onChange={(e) => setDepositTrxId(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+            <div className="space-y-1">
+              <label className="text-[11px] text-slate-400">Payment Screenshot Proof:</label>
+              <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-xs text-slate-400" />
+            </div>
+            <button type="submit" className="w-full py-3 bg-emerald-600 rounded-xl text-xs font-bold text-white hover:bg-emerald-500 transition">Submit Deposit</button>
+          </form>
+        )}
 
-          <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-            <p className="text-xs font-semibold text-slate-400">Total Withdrawn</p>
-            <h3 className="text-2xl font-black text-amber-500 mt-1">$0.00</h3>
+        {/* WITHDRAW TAB */}
+        {activeTab === "withdraw" && (
+          <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+            <h2 className="text-base font-bold text-amber-400">Withdraw Funds</h2>
+            <div className="p-2.5 bg-amber-950/20 border border-amber-500/30 rounded-xl text-xs text-amber-400 flex justify-between">
+              <span>Payout Rate:</span>
+              <span className="font-bold">1 USD = {dollarRate} PKR</span>
+            </div>
+            <input type="number" placeholder="Amount ($)" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+            <input type="text" placeholder="Account Number" value={withdrawAccount} onChange={(e) => setWithdrawAccount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+            <button onClick={() => alert("Withdraw request submitted!")} className="w-full py-3 bg-amber-500 rounded-xl text-xs font-bold text-slate-950">Submit Request</button>
           </div>
+        )}
 
-          <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-            <p className="text-xs font-semibold text-slate-400">Referral Earnings</p>
-            <h3 className="text-2xl font-black text-blue-400 mt-1">$0.00</h3>
+        {/* REFER TAB */}
+        {activeTab === "refer" && (
+          <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+            <h2 className="text-base font-bold">Referral Program</h2>
+            <div className="flex gap-2">
+              <input type="text" readOnly value={referLink} className="w-full p-2.5 text-xs bg-slate-900 border border-slate-800 rounded-xl text-emerald-400 font-mono" />
+              <button onClick={() => handleCopy(referLink, "ref")} className="px-4 py-2.5 bg-blue-600 rounded-xl text-xs font-bold text-white">{copiedRef ? "Copied!" : "Copy"}</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {[
+                { target: 5, reward: "$1.00" },
+                { target: 10, reward: "$2.00" },
+                { target: 25, reward: "$5.00" },
+                { target: 50, reward: "$10.00" },
+              ].map((item, i) => (
+                <div key={i} className="p-3 border border-slate-800 bg-slate-900/60 rounded-xl text-center">
+                  <div className="text-[10px] text-slate-400 font-medium">{item.target} Referrals</div>
+                  <div className="text-base font-black text-amber-400 mt-0.5">{item.reward}</div>
+                </div>
+              ))}
+            </div>
           </div>
-
-          <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-            <p className="text-xs font-semibold text-slate-400">Active Plan</p>
-            <h3 className="text-sm font-bold text-emerald-400 mt-1">No Active Plan</h3>
-            <p className="text-[10px] text-slate-500">Time Left: N/A</p>
-          </div>
-        </div>
-
-        {/* Official Accounts Section */}
-        <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"} space-y-3`}>
-          <h4 className="text-xs font-bold text-slate-300">Official EasyPaisa Deposit Account</h4>
-          <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-            <span className="text-sm font-bold text-white tracking-wider">{easyPaisaNumber}</span>
-            <button onClick={() => handleCopy(easyPaisaNumber, "ep")} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">
-              {copiedAccount === "ep" ? "Copied!" : "Copy"}
-            </button>
-          </div>
-
-          <h4 className="text-xs font-bold text-slate-300 pt-1">Official JazzCash Deposit Account</h4>
-          <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-            <span className="text-sm font-bold text-white tracking-wider">{jazzCashNumber}</span>
-            <button onClick={() => handleCopy(jazzCashNumber, "jc")} className="px-3 py-1 bg-amber-500 text-slate-950 rounded-lg text-xs font-bold">
-              {copiedAccount === "jc" ? "Copied!" : "Copy"}
-            </button>
-          </div>
-        </div>
+        )}
       </main>
     </div>
   );
