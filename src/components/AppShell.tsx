@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   ListChecks,
   LogOut,
-  ShieldCheck,
   Users,
   Wallet,
 } from "lucide-react";
@@ -16,7 +15,7 @@ import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsAdmin, useProfile, usd } from "@/lib/dollarcash";
+import { useProfile, usd } from "@/lib/dollarcash";
 
 const nav = [
   { to: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -37,7 +36,6 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { data: profile } = useProfile();
-  const { data: isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -74,13 +72,6 @@ export function AppShell({
             {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
           </div>
           <div className="flex items-center gap-2">
-            {isAdmin ? (
-              <Button asChild variant="outline" size="sm">
-                <Link to="/admin">
-                  <ShieldCheck className="size-4" /> Admin
-                </Link>
-              </Button>
-            ) : null}
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="size-4" /> Sign out
             </Button>

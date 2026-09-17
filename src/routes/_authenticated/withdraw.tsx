@@ -7,13 +7,20 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { StatusBadge } from "@/routes/_authenticated/deposit";
 import { supabase } from "@/integrations/supabase/client";
 import { MIN_WITHDRAWAL, usePaymentMethods, useProfile, useRate, usd } from "@/lib/dollarcash";
 
 export const Route = createFileRoute("/_authenticated/withdraw")({
   component: WithdrawPage,
 });
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className="rounded-full border px-2 py-1 text-xs font-semibold uppercase text-muted-foreground">
+      {status}
+    </span>
+  );
+}
 
 function WithdrawPage() {
   const { data: profile } = useProfile();
