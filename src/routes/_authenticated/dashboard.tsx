@@ -19,6 +19,21 @@ interface TransactionRequest {
   date: string;
 }
 
+const DEFAULT_TRANSACTIONS: TransactionRequest[] = [
+  {
+    id: "DEP-101",
+    type: "deposit",
+    userPhone: "03001234567",
+    senderName: "Ali Raza",
+    senderNumber: "03001234567",
+    amount: "5.00",
+    trxId: "TRX982314561",
+    screenshotUrl: null,
+    status: "pending",
+    date: "2026-09-17 09:30 AM",
+  },
+];
+
 function DashboardComponent() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [activeTab, setActiveTab] = useState<"home" | "plans" | "tasks" | "deposit" | "withdraw" | "refer">("home");
@@ -48,30 +63,27 @@ function DashboardComponent() {
   const jazzCashNumber = "03133221347";
   const referLink = `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=DC78921`;
 
-  // Shared Transactions State (Deposits & Withdrawals)
-  const [transactions, setTransactions] = useState<TransactionRequest[]>([
-    {
-      id: "DEP-101",
-      type: "deposit",
-      userPhone: "03001234567",
-      senderName: "Ali Raza",
-      senderNumber: "03001234567",
-      amount: "5.00",
-      trxId: "TRX982314561",
-      screenshotUrl: null,
-      status: "pending",
-      date: "2026-09-17 09:30 AM",
-    },
-    {
-      id: "WTH-102",
-      type: "withdraw",
-      userPhone: "03001234567",
-      accountNumber: "03151390564",
-      amount: "2.00",
-      status: "approved",
-      date: "2026-09-16 04:15 PM",
+  // Persistent Transactions State using LocalStorage
+  const [transactions, setTransactions] = useState<TransactionRequest[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dc_transactions");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Failed to parse transactions", e);
+        }
+      }
     }
-  ]);
+    return DEFAULT_TRANSACTIONS;
+  });
+
+  // Save transactions to LocalStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("dc_transactions", JSON.stringify(transactions));
+    }
+  }, [transactions]);
 
   useEffect(() => {
     fetch("https://open.er-api.com/v6/latest/USD")
@@ -88,7 +100,7 @@ function DashboardComponent() {
 
   const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 
-  // Secret Admin Trigger: Clicking DollarCash Logo
+  // Secret Admin Trigger
   const handleSecretAdminTrigger = () => {
     if (isAdmin) {
       setShowAdminPanel(!showAdminPanel);
@@ -146,7 +158,7 @@ function DashboardComponent() {
       status: "pending",
       date: new Date().toLocaleString(),
     };
-    setTransactions([newReq, ...transactions]);
+    setTransactions((prev) => [newReq, ...prev]);
     alert("Deposit request submitted! Status is Pending.");
     setDepositAmount("");
     setDepositTrxId("");
@@ -166,14 +178,17 @@ function DashboardComponent() {
       status: "pending",
       date: new Date().toLocaleString(),
     };
-    setTransactions([newReq, ...transactions]);
+    setTransactions((prev) => [newReq, ...prev]);
     alert("Withdrawal request submitted! Status is Pending.");
     setWithdrawAmount("");
     setWithdrawAccount("");
   };
 
+  // Status Change Logic
   const updateStatus = (id: string, newStatus: "approved" | "rejected") => {
-    setTransactions(transactions.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
+    );
   };
 
   const isDark = theme === "dark";
@@ -289,22 +304,25 @@ function DashboardComponent() {
                     <img src={item.screenshotUrl} alt="Proof" className="w-full h-24 object-cover rounded-lg mt-1 border border-slate-700" />
                   )}
 
-                  {item.status === "pending" && (
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        onClick={() => updateStatus(item.id, "approved")}
-                        className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-[11px]"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => updateStatus(item.id, "rejected")}
-                        className="flex-1 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-[11px]"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => updateStatus(item.id, "approved")}
+                      className={`flex-1 py-1 text-white rounded font-bold text-[11px] transition ${
+                        item.status === "approved" ? "bg-emerald-800 cursor-not-allowed opacity-60" : "bg-emerald-600 hover:bg-emerald-500"
+                      }`}
+                    >
+                      {item.status === "approved" ? "✓ Approved" : "Approve"}
+                    </button>
+                    <button
+                      onClick={() => updateStatus(item.id, "rejected")}
+                      className={`flex-1 py-1 text-white rounded font-bold text-[11px] transition ${
+                        item.status === "rejected" ? "bg-rose-800 cursor-not-allowed opacity-60" : "bg-rose-600 hover:bg-rose-500"
+                      }`}
+                    >
+                      {item.status === "rejected" ? "✗ Rejected" : "Reject"}
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -390,7 +408,7 @@ function DashboardComponent() {
           </div>
         )}
 
-        {/* DEPOSIT TAB + USER DEPOSIT HISTORY */}
+        {/* DEPOSIT TAB */}
         {activeTab === "deposit" && (
           <div className="space-y-4">
             <form onSubmit={handleDepositSubmit} className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
@@ -435,7 +453,7 @@ function DashboardComponent() {
           </div>
         )}
 
-        {/* WITHDRAW TAB + USER WITHDRAW HISTORY */}
+        {/* WITHDRAW TAB */}
         {activeTab === "withdraw" && (
           <div className="space-y-4">
             <form onSubmit={handleWithdrawSubmit} className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
