@@ -1,85 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Copy, Gift, Users, Award, CheckCircle2, Trophy } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Copy, Gift, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/_authenticated/refer")({
+export const Route = createFileRoute("/_authenticated/referrals")({
   component: ReferPage,
 });
 
-// MILESTONE REWARDS TIERS
-const REFERRAL_REWARDS = [
-  { count: 5, reward: 1, label: "5 Referrals -> $1.00 Cash Bonus" },
-  { count: 10, reward: 2, label: "10 Referrals -> $2.00 Cash Bonus" },
-  { count: 25, reward: 5, label: "25 Referrals -> $5.00 Cash Bonus" },
-  { count: 50, reward: 10, label: "50 Referrals -> $10.00 Cash Bonus" },
-];
-
 function ReferPage() {
-  const queryClient = useQueryClient();
-  const [claiming, setClaiming] = useState<number | null>(null);
-
-  const { data: profile } = useQuery({
+  const { data } = useQuery({
     queryKey: ["profile-referrals"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
-      const { data } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("referral_code")
         .eq("id", user.id)
         .maybeSingle();
-      return data;
+      if (profileError) throw profileError;
+      const { data: referrals, error: referralError } = await supabase
+        .from("referrals")
+        .select("bonus_amount, bonus_paid")
+        .eq("referrer_id", user.id);
+      if (referralError) throw referralError;
+      return { profile, referrals: referrals ?? [] };
     },
   });
 
-  const referralCount = profile?.referral_count ?? 0;
-  const claimedMilestones: number[] = profile?.claimed_rewards ?? [];
-
-  // Referral Link Generator
-  const referralLink = `${window.location.origin}/register?ref=${profile?.id?.slice(0, 8) || "user"}`;
+  const referralCount = data?.referrals.length ?? 0;
+  const earnings = data?.referrals.reduce(
+    (total, referral) => total + (referral.bonus_paid ? Number(referral.bonus_amount) : 0),
+    0,
+  ) ?? 0;
+  const referralLink = `https://dollarcash.site/auth?ref=${data?.profile?.referral_code ?? ""}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);
     toast.success("Referral link copied to clipboard!");
   };
 
-  // Claim Milestone Reward
-  const handleClaimReward = async (milestone: typeof REFERRAL_REWARDS[0]) => {
-    if (!profile?.id) return;
-    setClaiming(milestone.count);
-
-    try {
-      const updatedBalance = Number(profile.balance || 0) + milestone.reward;
-      const updatedClaimed = [...claimedMilestones, milestone.count];
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          balance: updatedBalance,
-          claimed_rewards: updatedClaimed,
-        })
-        .eq("id", profile.id);
-
-      if (error) throw error;
-
-      toast.success(`Congratulations! $${milestone.reward}.00 added to your balance!`);
-      void queryClient.invalidateQueries();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to claim reward");
-    } finally {
-      setClaiming(null);
-    }
-  };
-
   return (
-    <AppShell title="Refer & Earn Rewards" subtitle="Invite friends and unlock cash bonuses!">
+    <AppShell title="Refer & Earn" subtitle="Invite friends and earn referral bonuses">
       <div className="space-y-6">
         {/* REFERRAL LINK BOX */}
         <div className="surface-card p-5 border border-border rounded-xl space-y-3">
@@ -88,7 +54,7 @@ function ReferPage() {
             <h2 className="font-bold text-lg">Your Unique Referral Link</h2>
           </div>
           <p className="text-xs text-muted-foreground">
-            Share this link with your friends to invite them. Direct commission is disabled — earn milestones cash rewards instead!
+            Share this link with friends. Your bonus is credited when a referred member activates a plan.
           </p>
           <div className="flex gap-2">
             <input
@@ -103,64 +69,19 @@ function ReferPage() {
           </div>
         </div>
 
-        {/* TOTAL REFERRALS STATS */}
-        <div className="surface-card p-5 border border-border rounded-xl flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">Total Active Invites</p>
-            <h3 className="text-3xl font-extrabold mt-1">{referralCount} Users</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="surface-card flex items-center justify-between rounded-xl border border-border p-5">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Total referrals</p>
+              <h3 className="mt-1 text-3xl font-extrabold">{referralCount} Users</h3>
+            </div>
+            <div className="rounded-2xl bg-primary/10 p-4 text-primary">
+              <Users className="size-8" />
+            </div>
           </div>
-          <div className="p-4 bg-primary/10 rounded-2xl text-primary">
-            <Users className="size-8" />
-          </div>
-        </div>
-
-        {/* MILESTONE CASH REWARDS TIERS */}
-        <div className="surface-card p-5 border border-border rounded-xl space-y-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="size-5 text-amber-500" />
-            <h2 className="font-bold text-lg">Referral Milestone Cash Rewards</h2>
-          </div>
-
-          <div className="grid gap-4">
-            {REFERRAL_REWARDS.map((tier) => {
-              const isClaimed = claimedMilestones.includes(tier.count);
-              const isUnlocked = referralCount >= tier.count;
-              const progress = Math.min(100, (referralCount / tier.count) * 100);
-
-              return (
-                <div key={tier.count} className="border border-border rounded-lg p-4 space-y-3 bg-card/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Award className={`size-5 ${isUnlocked ? "text-amber-500" : "text-muted-foreground"}`} />
-                      <span className="font-semibold text-sm">{tier.label}</span>
-                    </div>
-
-                    {isClaimed ? (
-                      <span className="text-xs text-emerald-500 font-bold flex items-center gap-1">
-                        <CheckCircle2 className="size-4" /> Claimed
-                      </span>
-                    ) : (
-                      <Button
-                        size="sm"
-                        disabled={!isUnlocked || claiming === tier.count}
-                        className={isUnlocked ? "bg-amber-600 hover:bg-amber-700 text-white font-bold" : ""}
-                        onClick={() => handleClaimReward(tier)}
-                      >
-                        {claiming === tier.count ? "Claiming..." : isUnlocked ? `Claim $${tier.reward}.00` : "Locked"}
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Progress</span>
-                      <span>{referralCount} / {tier.count} Referrals</span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="surface-card rounded-xl border border-border p-5">
+            <p className="text-xs font-medium text-muted-foreground">Referral earnings</p>
+            <h3 className="mt-1 text-3xl font-extrabold">${earnings.toFixed(2)}</h3>
           </div>
         </div>
       </div>

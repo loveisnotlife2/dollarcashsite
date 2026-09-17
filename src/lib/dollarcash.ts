@@ -56,31 +56,6 @@ export function useProfile() {
   });
 }
 
-/** Owner numbers that always get admin access. */
-export const ADMIN_PHONES = ["+923133221347", "+923485374133"];
-
-export function useIsAdmin() {
-  return useQuery({
-    queryKey: ["is-admin"],
-    queryFn: async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) return false;
-
-      // Owner / co-admin numbers are granted the admin role automatically.
-      await supabase.rpc("claim_admin_access");
-
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", auth.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      if (error) throw error;
-      return Boolean(data);
-    },
-  });
-}
-
 export function usePlans() {
   return useQuery({
     queryKey: ["plans"],
