@@ -5,14 +5,16 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardComponent,
 });
 
-interface DepositRequest {
+interface TransactionRequest {
   id: string;
+  type: "deposit" | "withdraw";
   userPhone: string;
-  senderName: string;
-  senderNumber: string;
+  senderName?: string;
+  senderNumber?: string;
+  accountNumber?: string;
   amount: string;
-  trxId: string;
-  screenshotUrl: string | null;
+  trxId?: string;
+  screenshotUrl?: string | null;
   status: "pending" | "approved" | "rejected";
   date: string;
 }
@@ -46,18 +48,29 @@ function DashboardComponent() {
   const jazzCashNumber = "03133221347";
   const referLink = `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=DC78921`;
 
-  const [deposits, setDeposits] = useState<DepositRequest[]>([
+  // Shared Transactions State (Deposits & Withdrawals)
+  const [transactions, setTransactions] = useState<TransactionRequest[]>([
     {
       id: "DEP-101",
+      type: "deposit",
       userPhone: "03001234567",
       senderName: "Ali Raza",
       senderNumber: "03001234567",
       amount: "5.00",
       trxId: "TRX982314561",
-      screenshotUrl: "https://via.placeholder.com/300x150?text=Payment+Proof",
+      screenshotUrl: null,
       status: "pending",
       date: "2026-09-17 09:30 AM",
     },
+    {
+      id: "WTH-102",
+      type: "withdraw",
+      userPhone: "03001234567",
+      accountNumber: "03151390564",
+      amount: "2.00",
+      status: "approved",
+      date: "2026-09-16 04:15 PM",
+    }
   ]);
 
   useEffect(() => {
@@ -121,8 +134,9 @@ function DashboardComponent() {
 
   const handleDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newReq: DepositRequest = {
+    const newReq: TransactionRequest = {
       id: `DEP-${Date.now().toString().slice(-4)}`,
+      type: "deposit",
       userPhone: "03133221347",
       senderName: depositSenderName,
       senderNumber: depositSenderNumber,
@@ -132,13 +146,34 @@ function DashboardComponent() {
       status: "pending",
       date: new Date().toLocaleString(),
     };
-    setDeposits([newReq, ...deposits]);
-    alert("Deposit request submitted!");
+    setTransactions([newReq, ...transactions]);
+    alert("Deposit request submitted! Status is Pending.");
     setDepositAmount("");
     setDepositTrxId("");
     setDepositSenderName("");
     setDepositSenderNumber("");
     setScreenshotPreview(null);
+  };
+
+  const handleWithdrawSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newReq: TransactionRequest = {
+      id: `WTH-${Date.now().toString().slice(-4)}`,
+      type: "withdraw",
+      userPhone: "03133221347",
+      accountNumber: withdrawAccount,
+      amount: withdrawAmount,
+      status: "pending",
+      date: new Date().toLocaleString(),
+    };
+    setTransactions([newReq, ...transactions]);
+    alert("Withdrawal request submitted! Status is Pending.");
+    setWithdrawAmount("");
+    setWithdrawAccount("");
+  };
+
+  const updateStatus = (id: string, newStatus: "approved" | "rejected") => {
+    setTransactions(transactions.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
   };
 
   const isDark = theme === "dark";
@@ -161,7 +196,6 @@ function DashboardComponent() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Light/Dark Toggle Button */}
           <button
             onClick={toggleTheme}
             className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-amber-400 text-xs font-bold flex items-center gap-1"
@@ -171,7 +205,7 @@ function DashboardComponent() {
         </div>
       </header>
 
-      {/* Quick Navigation Tabs (Replacing Bottom Nav) */}
+      {/* Navigation Tabs */}
       <div className="max-w-md mx-auto p-4 pb-0 flex gap-1.5 overflow-x-auto no-scrollbar">
         {[
           { id: "home", label: "Dashboard" },
@@ -197,14 +231,15 @@ function DashboardComponent() {
 
       {/* Main Container */}
       <main className="max-w-md mx-auto p-4 space-y-4">
-        {/* Admin Panel (Secretly unlocked via Logo) */}
+        {/* Admin Panel */}
         {isAdmin && showAdminPanel && (
-          <div className="p-4 rounded-2xl border border-amber-500/40 bg-amber-950/10 space-y-4">
+          <div className="p-4 rounded-2xl border border-amber-500/40 bg-amber-950/20 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold text-amber-400">🛡️ Admin Dashboard Control</h3>
+              <h3 className="text-sm font-bold text-amber-400">🛡️ Admin Management Panel</h3>
               <button onClick={() => setShowAdminPanel(false)} className="text-xs text-slate-400">Close ✕</button>
             </div>
 
+            {/* Rate Update */}
             <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
               <h4 className="text-xs font-bold text-amber-400">💵 Update Dollar Rate (PKR)</h4>
               <form onSubmit={handleUpdateRate} className="flex gap-2">
@@ -214,48 +249,64 @@ function DashboardComponent() {
                   value={newRateInput}
                   onChange={(e) => setNewRateInput(e.target.value)}
                   className="flex-1 p-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white font-bold"
-                  placeholder="Rate in PKR"
                 />
                 <button type="submit" className="px-3 py-2 bg-amber-500 font-bold text-xs text-slate-950 rounded-lg">
-                  Update
+                  Update Rate
                 </button>
               </form>
             </div>
 
-            <h4 className="text-xs font-bold text-amber-400">Pending Deposits ({deposits.filter((d) => d.status === "pending").length})</h4>
-            {deposits.filter((d) => d.status === "pending").length === 0 ? (
-              <p className="text-xs text-slate-400">No pending deposits.</p>
+            {/* Admin Requests Management */}
+            <h4 className="text-xs font-bold text-amber-400">All User Requests ({transactions.length})</h4>
+            {transactions.length === 0 ? (
+              <p className="text-xs text-slate-400">No requests found.</p>
             ) : (
-              deposits
-                .filter((d) => d.status === "pending")
-                .map((item) => (
-                  <div key={item.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
-                    <div className="flex justify-between font-bold text-amber-400">
-                      <span>{item.senderName} ({item.senderNumber})</span>
-                      <span>${item.amount}</span>
+              transactions.map((item) => (
+                <div key={item.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
+                  <div className="flex justify-between font-bold">
+                    <span className={item.type === "deposit" ? "text-emerald-400" : "text-amber-400"}>
+                      [{item.type.toUpperCase()}] ${item.amount}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-black ${
+                      item.status === "pending" ? "bg-amber-500/20 text-amber-400" :
+                      item.status === "approved" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                    }`}>
+                      {item.status}
+                    </span>
+                  </div>
+
+                  {item.type === "deposit" ? (
+                    <div className="text-slate-300 text-[11px]">
+                      From: {item.senderName} ({item.senderNumber}) | TRX: <span className="font-mono text-emerald-300">{item.trxId}</span>
                     </div>
-                    <div className="text-slate-300">
-                      TRX ID: <span className="text-emerald-400 font-mono">{item.trxId}</span>
+                  ) : (
+                    <div className="text-slate-300 text-[11px]">
+                      To Account: <span className="font-mono text-amber-300">{item.accountNumber}</span>
                     </div>
-                    {item.screenshotUrl && (
-                      <img src={item.screenshotUrl} alt="Proof" className="w-full h-28 object-cover rounded-lg mt-1 border border-slate-700" />
-                    )}
+                  )}
+
+                  {item.screenshotUrl && (
+                    <img src={item.screenshotUrl} alt="Proof" className="w-full h-24 object-cover rounded-lg mt-1 border border-slate-700" />
+                  )}
+
+                  {item.status === "pending" && (
                     <div className="flex gap-2 pt-2">
                       <button
-                        onClick={() => setDeposits(deposits.map((d) => (d.id === item.id ? { ...d, status: "approved" } : d)))}
-                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold"
+                        onClick={() => updateStatus(item.id, "approved")}
+                        className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-[11px]"
                       >
                         Approve
                       </button>
                       <button
-                        onClick={() => setDeposits(deposits.map((d) => (d.id === item.id ? { ...d, status: "rejected" } : d)))}
-                        className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-bold"
+                        onClick={() => updateStatus(item.id, "rejected")}
+                        className="flex-1 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-[11px]"
                       >
                         Reject
                       </button>
                     </div>
-                  </div>
-                ))
+                  )}
+                </div>
+              ))
             )}
           </div>
         )}
@@ -263,7 +314,6 @@ function DashboardComponent() {
         {/* HOME / DASHBOARD TAB */}
         {activeTab === "home" && (
           <div className="space-y-4">
-            {/* Main Balance Card */}
             <div className={`p-5 rounded-3xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"} space-y-4`}>
               <div>
                 <p className="text-xs font-medium text-slate-400">Available Main Balance</p>
@@ -273,41 +323,17 @@ function DashboardComponent() {
 
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button onClick={() => setActiveTab("deposit")} className="py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 font-extrabold text-sm text-white flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition">
-                  <span>💸</span> Deposit Money
+                  Deposit Money
                 </button>
                 <button onClick={() => setActiveTab("withdraw")} className="py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 font-extrabold text-sm text-slate-950 flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition">
-                  <span>💸</span> Withdraw Cash
+                  Withdraw Cash
                 </button>
               </div>
             </div>
 
-            {/* 2x2 Grid Stats */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-                <p className="text-xs font-semibold text-slate-400">Total Invested</p>
-                <h3 className="text-2xl font-black text-emerald-400 mt-1">$0.00</h3>
-              </div>
-
-              <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-                <p className="text-xs font-semibold text-slate-400">Total Withdrawn</p>
-                <h3 className="text-2xl font-black text-amber-500 mt-1">$0.00</h3>
-              </div>
-
-              <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-                <p className="text-xs font-semibold text-slate-400">Referral Earnings</p>
-                <h3 className="text-2xl font-black text-blue-400 mt-1">$0.00</h3>
-              </div>
-
-              <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-                <p className="text-xs font-semibold text-slate-400">Active Plan</p>
-                <h3 className="text-sm font-bold text-emerald-400 mt-1">No Active Plan</h3>
-                <p className="text-[10px] text-slate-500">Time Left: N/A</p>
-              </div>
-            </div>
-
-            {/* Official Deposit Accounts */}
+            {/* Official Accounts */}
             <div className={`p-4 rounded-2xl border ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"} space-y-3`}>
-              <h4 className="text-xs font-bold text-slate-300">Official EasyPaisa Deposit Account</h4>
+              <h4 className="text-xs font-bold text-slate-300">EasyPaisa Deposit Account</h4>
               <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900/80 border border-slate-800">
                 <span className="text-sm font-bold text-white tracking-wider">{easyPaisaNumber}</span>
                 <button onClick={() => handleCopy(easyPaisaNumber, "ep")} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">
@@ -315,7 +341,7 @@ function DashboardComponent() {
                 </button>
               </div>
 
-              <h4 className="text-xs font-bold text-slate-300 pt-1">Official JazzCash Deposit Account</h4>
+              <h4 className="text-xs font-bold text-slate-300 pt-1">JazzCash Deposit Account</h4>
               <div className="flex justify-between items-center p-3 rounded-xl bg-slate-900/80 border border-slate-800">
                 <span className="text-sm font-bold text-white tracking-wider">{jazzCashNumber}</span>
                 <button onClick={() => handleCopy(jazzCashNumber, "jc")} className="px-3 py-1 bg-amber-500 text-slate-950 rounded-lg text-xs font-bold">
@@ -342,8 +368,8 @@ function DashboardComponent() {
                   <span className="text-xs font-black text-white">{plan.cost}</span>
                 </div>
                 <div className="text-xs text-slate-400 flex justify-between">
-                  <span>Daily Return: {plan.daily}</span>
-                  <span>Total Profit: {plan.total}</span>
+                  <span>Daily: {plan.daily}</span>
+                  <span>Total: {plan.total}</span>
                 </div>
                 <button onClick={() => setActiveTab("deposit")} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold text-white transition">
                   Activate Plan
@@ -364,37 +390,87 @@ function DashboardComponent() {
           </div>
         )}
 
-        {/* DEPOSIT TAB */}
+        {/* DEPOSIT TAB + USER DEPOSIT HISTORY */}
         {activeTab === "deposit" && (
-          <form onSubmit={handleDepositSubmit} className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-            <h2 className="text-base font-bold text-emerald-400">Deposit Funds</h2>
-            <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 flex justify-between">
-              <span>Current Rate:</span>
-              <span className="font-bold">1 USD = {dollarRate} PKR</span>
+          <div className="space-y-4">
+            <form onSubmit={handleDepositSubmit} className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+              <h2 className="text-base font-bold text-emerald-400">Deposit Funds</h2>
+              <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 flex justify-between">
+                <span>Current Rate:</span>
+                <span className="font-bold">1 USD = {dollarRate} PKR</span>
+              </div>
+              <input type="text" placeholder="Sender Name" required value={depositSenderName} onChange={(e) => setDepositSenderName(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+              <input type="text" placeholder="Sender Number" required value={depositSenderNumber} onChange={(e) => setDepositSenderNumber(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+              <input type="number" placeholder="Amount ($)" required value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+              <input type="text" placeholder="TRX ID" required value={depositTrxId} onChange={(e) => setDepositTrxId(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+              <div className="space-y-1">
+                <label className="text-[11px] text-slate-400">Payment Screenshot:</label>
+                <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-xs text-slate-400" />
+              </div>
+              <button type="submit" className="w-full py-3 bg-emerald-600 rounded-xl text-xs font-bold text-white hover:bg-emerald-500 transition">Submit Deposit Request</button>
+            </form>
+
+            {/* Deposit History */}
+            <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+              <h3 className="text-xs font-bold text-slate-300">My Deposit History</h3>
+              {transactions.filter(t => t.type === "deposit").length === 0 ? (
+                <p className="text-xs text-slate-500">No deposit history.</p>
+              ) : (
+                transactions.filter(t => t.type === "deposit").map((item) => (
+                  <div key={item.id} className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-xs space-y-1">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="text-emerald-400">${item.amount}</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                        item.status === "pending" ? "bg-amber-500/20 text-amber-400" :
+                        item.status === "approved" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">TRX: {item.trxId} • {item.date}</div>
+                  </div>
+                ))
+              )}
             </div>
-            <input type="text" placeholder="Sender Name" required value={depositSenderName} onChange={(e) => setDepositSenderName(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
-            <input type="text" placeholder="Sender Number" required value={depositSenderNumber} onChange={(e) => setDepositSenderNumber(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
-            <input type="number" placeholder="Amount ($)" required value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
-            <input type="text" placeholder="TRX ID" required value={depositTrxId} onChange={(e) => setDepositTrxId(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
-            <div className="space-y-1">
-              <label className="text-[11px] text-slate-400">Payment Screenshot Proof:</label>
-              <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-xs text-slate-400" />
-            </div>
-            <button type="submit" className="w-full py-3 bg-emerald-600 rounded-xl text-xs font-bold text-white hover:bg-emerald-500 transition">Submit Deposit</button>
-          </form>
+          </div>
         )}
 
-        {/* WITHDRAW TAB */}
+        {/* WITHDRAW TAB + USER WITHDRAW HISTORY */}
         {activeTab === "withdraw" && (
-          <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
-            <h2 className="text-base font-bold text-amber-400">Withdraw Funds</h2>
-            <div className="p-2.5 bg-amber-950/20 border border-amber-500/30 rounded-xl text-xs text-amber-400 flex justify-between">
-              <span>Payout Rate:</span>
-              <span className="font-bold">1 USD = {dollarRate} PKR</span>
+          <div className="space-y-4">
+            <form onSubmit={handleWithdrawSubmit} className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+              <h2 className="text-base font-bold text-amber-400">Withdraw Funds</h2>
+              <div className="p-2.5 bg-amber-950/20 border border-amber-500/30 rounded-xl text-xs text-amber-400 flex justify-between">
+                <span>Payout Rate:</span>
+                <span className="font-bold">1 USD = {dollarRate} PKR</span>
+              </div>
+              <input type="number" placeholder="Amount ($)" required value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+              <input type="text" placeholder="EasyPaisa/JazzCash Account Number" required value={withdrawAccount} onChange={(e) => setWithdrawAccount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
+              <button type="submit" className="w-full py-3 bg-amber-500 rounded-xl text-xs font-bold text-slate-950">Submit Request</button>
+            </form>
+
+            {/* Withdraw History */}
+            <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0b1120] border-slate-800/80" : "bg-white border-slate-200"}`}>
+              <h3 className="text-xs font-bold text-slate-300">My Withdrawal History</h3>
+              {transactions.filter(t => t.type === "withdraw").length === 0 ? (
+                <p className="text-xs text-slate-500">No withdrawal history.</p>
+              ) : (
+                transactions.filter(t => t.type === "withdraw").map((item) => (
+                  <div key={item.id} className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-xs space-y-1">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="text-amber-400">${item.amount}</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                        item.status === "pending" ? "bg-amber-500/20 text-amber-400" :
+                        item.status === "approved" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">Account: {item.accountNumber} • {item.date}</div>
+                  </div>
+                ))
+              )}
             </div>
-            <input type="number" placeholder="Amount ($)" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
-            <input type="text" placeholder="Account Number" value={withdrawAccount} onChange={(e) => setWithdrawAccount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
-            <button onClick={() => alert("Withdraw request submitted!")} className="w-full py-3 bg-amber-500 rounded-xl text-xs font-bold text-slate-950">Submit Request</button>
           </div>
         )}
 
