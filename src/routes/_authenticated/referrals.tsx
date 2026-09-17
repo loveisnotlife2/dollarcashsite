@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/_authenticated/refer")({
+export const Route = createFileRoute("/_authenticated/referrals")({
   component: ReferPage,
 });
 
