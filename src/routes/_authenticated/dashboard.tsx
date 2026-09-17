@@ -19,7 +19,7 @@ interface TransactionRequest {
   date: string;
 }
 
-const DEFAULT_TRANSACTIONS: TransactionRequest[] = [
+const DEFAULT_TRANSACTIONS: TransactionRequest[] = [];
   {
     id: "DEP-101",
     type: "deposit",
