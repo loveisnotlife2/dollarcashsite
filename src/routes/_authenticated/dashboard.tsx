@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardComponent,
@@ -17,15 +17,20 @@ interface DepositRequest {
   date: string;
 }
 
+interface WithdrawRequest {
+  id: string;
+  userPhone: string;
+  accountNumber: string;
+  amount: string;
+  status: "pending" | "approved" | "rejected";
+  date: string;
+}
+
 function DashboardComponent() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [activeTab, setActiveTab] = useState<"home" | "plans" | "tasks" | "deposit" | "withdraw" | "refer">("home");
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-
-  // DYNAMIC DOLLAR RATE STATE
-  const [dollarRate, setDollarRate] = useState<number>(280);
-  const [newRateInput, setNewRateInput] = useState<string>("280");
-
+  
   const [copiedAccount, setCopiedAccount] = useState("");
   const [copiedRef, setCopiedRef] = useState(false);
 
@@ -61,21 +66,6 @@ function DashboardComponent() {
   const jazzCashNumber = "03133221347";
   const referLink = `${typeof window !== "undefined" ? window.location.origin : ""}/register?ref=DC78921`;
 
-  // Live Auto Fetch Option (Optional API Integration)
-  useEffect(() => {
-    // Exchange rate API se live rate lene ke liye:
-    fetch("https://open.er-api.com/v6/latest/USD")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.rates && data.rates.PKR) {
-          const livePKR = Math.round(data.rates.PKR);
-          setDollarRate(livePKR);
-          setNewRateInput(livePKR.toString());
-        }
-      })
-      .catch((err) => console.log("Exchange API error, using default rate:", err));
-  }, []);
-
   const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 
   const handleCopy = (text: string, label: string) => {
@@ -94,15 +84,6 @@ function DashboardComponent() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setScreenshotPreview(URL.createObjectURL(e.target.files[0]));
-    }
-  };
-
-  const handleUpdateRate = (e: React.FormEvent) => {
-    e.preventDefault();
-    const parsed = parseFloat(newRateInput);
-    if (!isNaN(parsed) && parsed > 0) {
-      setDollarRate(parsed);
-      alert(`USD Rate updated to ${parsed} PKR successfully!`);
     }
   };
 
@@ -132,9 +113,10 @@ function DashboardComponent() {
 
   return (
     <div className={`min-h-screen pb-24 font-sans ${isDark ? "bg-[#070b14] text-slate-100" : "bg-slate-100 text-slate-900"}`}>
-      {/* Top Header */}
+      {/* Exact Top Header */}
       <header className={`px-4 py-3 flex justify-between items-center border-b ${isDark ? "border-slate-800/60 bg-[#070b14]" : "border-slate-200 bg-white"}`}>
         <div className="flex items-center gap-2">
+          {/* Green Shield Logo */}
           <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold">
             🛡️
           </div>
@@ -144,11 +126,13 @@ function DashboardComponent() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Balance Badge */}
           <div className="px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs font-semibold flex items-center gap-1.5">
             <span className="text-[10px] tracking-wider text-slate-400 font-bold">BALANCE</span>
             <span className="text-emerald-400 font-extrabold">$0.00</span>
           </div>
 
+          {/* Sun / Toggle / Moon Switch */}
           <button onClick={toggleTheme} className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs">
             <span className={isDark ? "opacity-40" : "opacity-100"}>☀️</span>
             <div className={`w-8 h-4 rounded-full p-0.5 transition ${isDark ? "bg-emerald-500" : "bg-slate-600"}`}>
@@ -184,61 +168,27 @@ function DashboardComponent() {
 
         {/* Admin Panel View */}
         {isAdmin && showAdminPanel && (
-          <div className="p-4 rounded-2xl border border-amber-500/40 bg-amber-950/10 space-y-4">
-            {/* Update Dollar Rate Section */}
-            <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-              <h4 className="text-xs font-bold text-amber-400">💵 Admin Dollar Rate Control</h4>
-              <form onSubmit={handleUpdateRate} className="flex gap-2">
-                <input
-                  type="number"
-                  step="0.1"
-                  value={newRateInput}
-                  onChange={(e) => setNewRateInput(e.target.value)}
-                  className="flex-1 p-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white font-bold"
-                  placeholder="Rate in PKR"
-                />
-                <button type="submit" className="px-3 py-2 bg-amber-500 font-bold text-xs text-slate-950 rounded-lg">
-                  Update
-                </button>
-              </form>
-            </div>
-
+          <div className="p-4 rounded-2xl border border-amber-500/40 bg-amber-950/10 space-y-3">
             <h3 className="text-sm font-bold text-amber-400">Pending Deposit Requests</h3>
-            {deposits.filter((d) => d.status === "pending").length === 0 ? (
+            {deposits.filter(d => d.status === "pending").length === 0 ? (
               <p className="text-xs text-slate-400">No pending deposits.</p>
             ) : (
-              deposits
-                .filter((d) => d.status === "pending")
-                .map((item) => (
-                  <div key={item.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
-                    <div className="flex justify-between font-bold text-amber-400">
-                      <span>
-                        {item.senderName} ({item.senderNumber})
-                      </span>
-                      <span>${item.amount}</span>
-                    </div>
-                    <div className="text-slate-300">
-                      TRX ID: <span className="text-emerald-400 font-mono">{item.trxId}</span>
-                    </div>
-                    {item.screenshotUrl && (
-                      <img src={item.screenshotUrl} alt="Proof" className="w-full h-28 object-cover rounded-lg mt-1 border border-slate-700" />
-                    )}
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        onClick={() => setDeposits(deposits.map((d) => (d.id === item.id ? { ...d, status: "approved" } : d)))}
-                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => setDeposits(deposits.map((d) => (d.id === item.id ? { ...d, status: "rejected" } : d)))}
-                        className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-bold"
-                      >
-                        Reject
-                      </button>
-                    </div>
+              deposits.filter(d => d.status === "pending").map((item) => (
+                <div key={item.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
+                  <div className="flex justify-between font-bold text-amber-400">
+                    <span>{item.senderName} ({item.senderNumber})</span>
+                    <span>${item.amount}</span>
                   </div>
-                ))
+                  <div className="text-slate-300">TRX ID: <span className="text-emerald-400 font-mono">{item.trxId}</span></div>
+                  {item.screenshotUrl && (
+                    <img src={item.screenshotUrl} alt="Proof" className="w-full h-28 object-cover rounded-lg mt-1 border border-slate-700" />
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => setDeposits(deposits.map(d => d.id === item.id ? {...d, status: "approved"} : d))} className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold">Approve</button>
+                    <button onClick={() => setDeposits(deposits.map(d => d.id === item.id ? {...d, status: "rejected"} : d))} className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-bold">Reject</button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}
@@ -256,11 +206,10 @@ function DashboardComponent() {
               </div>
             </div>
 
-            {/* LIVE DYNAMIC DOLLAR RATE CARD */}
             <div className={`p-5 rounded-2xl border flex justify-between items-center ${isDark ? "bg-[#0d1424] border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
               <div>
                 <p className="text-xs font-semibold text-slate-400">1 USD Rate</p>
-                <h2 className="text-2xl font-extrabold text-white mt-1">{dollarRate} PKR</h2>
+                <h2 className="text-2xl font-extrabold text-white mt-1">280 PKR</h2>
               </div>
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-lg">
                 📈
@@ -333,10 +282,6 @@ function DashboardComponent() {
         {activeTab === "deposit" && (
           <form onSubmit={handleDepositSubmit} className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0d1424] border-slate-800" : "bg-white border-slate-200"}`}>
             <h2 className="text-base font-bold text-emerald-400">Deposit Funds</h2>
-            <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 flex justify-between">
-              <span>Current Rate:</span>
-              <span className="font-bold">1 USD = {dollarRate} PKR</span>
-            </div>
             <input type="text" placeholder="Sender Name" required value={depositSenderName} onChange={(e) => setDepositSenderName(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500" />
             <input type="text" placeholder="Sender Number" required value={depositSenderNumber} onChange={(e) => setDepositSenderNumber(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500" />
             <input type="number" placeholder="Amount ($)" required value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500" />
@@ -353,10 +298,6 @@ function DashboardComponent() {
         {activeTab === "withdraw" && (
           <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? "bg-[#0d1424] border-slate-800" : "bg-white border-slate-200"}`}>
             <h2 className="text-base font-bold text-amber-400">Withdraw Funds</h2>
-            <div className="p-2.5 bg-amber-950/20 border border-amber-500/30 rounded-xl text-xs text-amber-400 flex justify-between">
-              <span>Payout Rate:</span>
-              <span className="font-bold">1 USD = {dollarRate} PKR</span>
-            </div>
             <input type="number" placeholder="Amount ($)" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
             <input type="text" placeholder="Account Number" value={withdrawAccount} onChange={(e) => setWithdrawAccount(e.target.value)} className="w-full p-3 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white outline-none" />
             <button onClick={() => alert("Withdraw request submitted!")} className="w-full py-3 bg-amber-500 rounded-xl text-xs font-bold text-slate-950">Submit Request</button>
@@ -388,7 +329,7 @@ function DashboardComponent() {
         )}
       </main>
 
-      {/* Bottom Navigation Bar */}
+      {/* Exact Bottom Navigation Bar */}
       <nav className={`fixed bottom-0 left-0 right-0 border-t flex justify-around items-center py-2.5 px-2 z-50 ${isDark ? "bg-[#070b14] border-slate-800/80" : "bg-white border-slate-200"}`}>
         {[
           { id: "home", label: "Home", icon: "⊞" },
