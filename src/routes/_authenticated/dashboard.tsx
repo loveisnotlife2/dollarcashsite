@@ -5,23 +5,80 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardComponent,
 });
 
+interface DepositRequest {
+  id: string;
+  userPhone: string;
+  senderName: string;
+  senderNumber: string;
+  amount: string;
+  trxId: string;
+  screenshotUrl: string | null;
+  status: "pending" | "approved" | "rejected";
+  date: string;
+}
+
+interface WithdrawRequest {
+  id: string;
+  userPhone: string;
+  accountNumber: string;
+  amount: string;
+  status: "pending" | "approved" | "rejected";
+  date: string;
+}
+
 function DashboardComponent() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [copiedAccount, setCopiedAccount] = useState(false);
   const [copiedRef, setCopiedRef] = useState(false);
   const [activeTab, setActiveTab] = useState<"none" | "deposit" | "withdraw">("none");
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
-  // Form States
+  // Current logged in user simulation (Replace with actual user context/Supabase auth)
+  const currentUserPhone = "03133221347"; // Admin Phone
+  const isAdmin = currentUserPhone === "03133221347";
+
+  // Deposit Form Inputs
   const [depositAmount, setDepositAmount] = useState("");
-  const [depositTid, setDepositTid] = useState("");
+  const [depositTrxId, setDepositTrxId] = useState("");
+  const [depositSenderName, setDepositSenderName] = useState("");
+  const [depositSenderNumber, setDepositSenderNumber] = useState("");
+  const [depositScreenshot, setDepositScreenshot] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+
+  // Withdraw Form Inputs
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAccount, setWithdrawAccount] = useState("");
 
-  // User financial state simulation (In real app, fetch from Supabase)
+  // System Requests State (Admin Management)
+  const [deposits, setDeposits] = useState<DepositRequest[]>([
+    {
+      id: "DEP-101",
+      userPhone: "03001234567",
+      senderName: "Ali Raza",
+      senderNumber: "03001234567",
+      amount: "5.00",
+      trxId: "TRX982314561",
+      screenshotUrl: "https://via.placeholder.com/300x150?text=Payment+Proof",
+      status: "pending",
+      date: "2026-09-17 09:30 AM",
+    },
+  ]);
+
+  const [withdrawals, setWithdrawals] = useState<WithdrawRequest[]>([
+    {
+      id: "WTH-201",
+      userPhone: "03129876543",
+      accountNumber: "03129876543",
+      amount: "2.00",
+      status: "pending",
+      date: "2026-09-17 09:45 AM",
+    },
+  ]);
+
   const isPaidUser = false;
   const activePlanName = isPaidUser ? "Plan 1 ($1.00)" : "No Active Plan";
   const planDaysRemaining = isPaidUser ? "12 Days" : "N/A";
-  
+
   const userStats = {
     mainBalance: "$0.00",
     totalDeposit: "$0.00",
@@ -46,6 +103,92 @@ function DashboardComponent() {
         setTimeout(() => setCopiedRef(false), 2000);
       }
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setDepositScreenshot(file);
+      setScreenshotPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleDepositSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!depositAmount || !depositTrxId || !depositSenderName || !depositSenderNumber) {
+      alert("Please fill all deposit details!");
+      return;
+    }
+
+    const newReq: DepositRequest = {
+      id: `DEP-${Date.now().toString().slice(-4)}`,
+      userPhone: currentUserPhone,
+      senderName: depositSenderName,
+      senderNumber: depositSenderNumber,
+      amount: depositAmount,
+      trxId: depositTrxId,
+      screenshotUrl: screenshotPreview,
+      status: "pending",
+      date: new Date().toLocaleString(),
+    };
+
+    setDeposits([newReq, ...deposits]);
+    alert("Deposit request submitted successfully for Admin approval!");
+    setDepositAmount("");
+    setDepositTrxId("");
+    setDepositSenderName("");
+    setDepositSenderNumber("");
+    setDepositScreenshot(null);
+    setScreenshotPreview(null);
+    setActiveTab("none");
+  };
+
+  const handleWithdrawSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!withdrawAmount || !withdrawAccount) {
+      alert("Please enter withdrawal amount and account number!");
+      return;
+    }
+
+    const newReq: WithdrawRequest = {
+      id: `WTH-${Date.now().toString().slice(-4)}`,
+      userPhone: currentUserPhone,
+      accountNumber: withdrawAccount,
+      amount: withdrawAmount,
+      status: "pending",
+      date: new Date().toLocaleString(),
+    };
+
+    setWithdrawals([newReq, ...withdrawals]);
+    alert("Withdrawal request submitted successfully!");
+    setWithdrawAmount("");
+    setWithdrawAccount("");
+    setActiveTab("none");
+  };
+
+  // Admin Actions
+  const handleApproveDeposit = (id: string) => {
+    setDeposits(
+      deposits.map((item) => (item.id === id ? { ...item, status: "approved" } : item))
+    );
+  };
+
+  const handleRejectDeposit = (id: string) => {
+    setDeposits(
+      deposits.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
+    );
+  };
+
+  const handleApproveWithdraw = (id: string) => {
+    setWithdrawals(
+      withdrawals.map((item) => (item.id === id ? { ...item, status: "approved" } : item))
+    );
+  };
+
+  const handleRejectWithdraw = (id: string) => {
+    setWithdrawals(
+      withdrawals.map((item) => (item.id === id ? { ...item, status: "rejected" } : item))
+    );
   };
 
   const referralMilestones = [
@@ -80,15 +223,14 @@ function DashboardComponent() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span
-              className={`hidden sm:inline-block px-3 py-1 border text-xs rounded-full font-semibold ${
-                isDark
-                  ? "bg-emerald-950/50 border-emerald-700/50 text-emerald-400"
-                  : "bg-emerald-100 border-emerald-300 text-emerald-800"
-              }`}
-            >
-              1 USD = 280 PKR
-            </span>
+            {isAdmin && (
+              <button
+                onClick={() => setShowAdminPanel(!showAdminPanel)}
+                className="px-3 py-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow transition"
+              >
+                {showAdminPanel ? "User Panel" : "🛡️ Admin Panel"}
+              </button>
+            )}
 
             <button
               onClick={toggleTheme}
@@ -103,7 +245,121 @@ function DashboardComponent() {
           </div>
         </div>
 
-        {/* Quick Deposit / Withdraw Action Buttons & Main Wallet Header */}
+        {/* ADMIN PANEL SECTION */}
+        {isAdmin && showAdminPanel && (
+          <div className="space-y-6 border-2 border-purple-500/50 p-5 rounded-2xl bg-purple-950/20">
+            <h2 className="text-xl font-extrabold text-purple-400 flex items-center gap-2">
+              🛡️ Admin Verification Panel (03133221347)
+            </h2>
+
+            {/* Pending Deposits */}
+            <div className="space-y-3">
+              <h3 className="text-base font-bold text-emerald-400">Deposit Approvals</h3>
+              {deposits.filter((d) => d.status === "pending").length === 0 ? (
+                <p className="text-xs text-slate-400">No pending deposits.</p>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {deposits
+                    .filter((d) => d.status === "pending")
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-4 border rounded-xl space-y-2 ${
+                          isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+                        }`}
+                      >
+                        <div className="flex justify-between text-xs font-bold text-amber-500">
+                          <span>Req ID: {item.id}</span>
+                          <span>${item.amount}</span>
+                        </div>
+                        <div className="text-xs space-y-1 text-slate-300">
+                          <div>User: <span className="font-semibold text-white">{item.userPhone}</span></div>
+                          <div>Sender Name: <span className="font-semibold text-white">{item.senderName}</span></div>
+                          <div>Sender Number: <span className="font-semibold text-white">{item.senderNumber}</span></div>
+                          <div>TRX ID: <span className="font-mono text-emerald-400">{item.trxId}</span></div>
+                          <div>Date: {item.date}</div>
+                        </div>
+
+                        {item.screenshotUrl && (
+                          <div className="pt-2">
+                            <p className="text-[10px] text-slate-400 mb-1">Payment Proof:</p>
+                            <img
+                              src={item.screenshotUrl}
+                              alt="Screenshot"
+                              className="w-full h-32 object-cover rounded-lg border border-slate-700"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={() => handleApproveDeposit(item.id)}
+                            className="flex-1 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectDeposit(item.id)}
+                            className="flex-1 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-lg"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Pending Withdrawals */}
+            <div className="space-y-3 pt-4 border-t border-purple-800/40">
+              <h3 className="text-base font-bold text-amber-400">Withdrawal Approvals</h3>
+              {withdrawals.filter((w) => w.status === "pending").length === 0 ? (
+                <p className="text-xs text-slate-400">No pending withdrawals.</p>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {withdrawals
+                    .filter((w) => w.status === "pending")
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-4 border rounded-xl space-y-2 ${
+                          isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+                        }`}
+                      >
+                        <div className="flex justify-between text-xs font-bold text-amber-500">
+                          <span>Req ID: {item.id}</span>
+                          <span>${item.amount}</span>
+                        </div>
+                        <div className="text-xs space-y-1 text-slate-300">
+                          <div>User: <span className="font-semibold text-white">{item.userPhone}</span></div>
+                          <div>Account Number: <span className="font-semibold text-emerald-400">{item.accountNumber}</span></div>
+                          <div>Date: {item.date}</div>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={() => handleApproveWithdraw(item.id)}
+                            className="flex-1 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectWithdraw(item.id)}
+                            className="flex-1 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-lg"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* MAIN USER DASHBOARD */}
         <div
           className={`p-6 border rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
             isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200"
@@ -131,48 +387,91 @@ function DashboardComponent() {
           </div>
         </div>
 
-        {/* Action Panel for Deposit / Withdraw Forms */}
+        {/* Deposit Form Section */}
         {activeTab === "deposit" && (
-          <div
+          <form
+            onSubmit={handleDepositSubmit}
             className={`p-6 border rounded-2xl space-y-4 shadow-lg ${
               isDark ? "bg-slate-900 border-emerald-500/40" : "bg-white border-emerald-400"
             }`}
           >
             <h3 className="text-lg font-bold text-emerald-500">Deposit Funds via EasyPaisa</h3>
             <p className="text-xs text-slate-400">
-              Send payment to EasyPaisa: <span className="font-bold text-amber-500">03151390564 (Quratulain)</span> then enter details below.
+              Send payment to EasyPaisa: <span className="font-bold text-amber-500">03151390564 (Quratulain)</span> then enter sender info & TRX ID.
             </p>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <input
-                type="number"
-                placeholder="Deposit Amount ($)"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
+                type="text"
+                placeholder="Sender Name"
+                required
+                value={depositSenderName}
+                onChange={(e) => setDepositSenderName(e.target.value)}
                 className={`p-3 text-xs border rounded-xl ${
-                  isDark ? "bg-slate-950 border-slate-800" : "bg-slate-100 border-slate-300"
+                  isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-100 border-slate-300"
                 }`}
               />
               <input
                 type="text"
-                placeholder="EasyPaisa Transaction ID (TID)"
-                value={depositTid}
-                onChange={(e) => setDepositTid(e.target.value)}
+                placeholder="Sender Mobile Number"
+                required
+                value={depositSenderNumber}
+                onChange={(e) => setDepositSenderNumber(e.target.value)}
                 className={`p-3 text-xs border rounded-xl ${
-                  isDark ? "bg-slate-950 border-slate-800" : "bg-slate-100 border-slate-300"
+                  isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-100 border-slate-300"
+                }`}
+              />
+              <input
+                type="number"
+                placeholder="Deposit Amount ($)"
+                required
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                className={`p-3 text-xs border rounded-xl ${
+                  isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-100 border-slate-300"
+                }`}
+              />
+              <input
+                type="text"
+                placeholder="EasyPaisa TRX ID"
+                required
+                value={depositTrxId}
+                onChange={(e) => setDepositTrxId(e.target.value)}
+                className={`p-3 text-xs border rounded-xl ${
+                  isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-100 border-slate-300"
                 }`}
               />
             </div>
+
+            {/* Screenshot Upload Input */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-400">Upload Payment Screenshot (Optional/Recommended)</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500"
+              />
+              {screenshotPreview && (
+                <div className="mt-2">
+                  <img src={screenshotPreview} alt="Preview" className="h-28 rounded-lg border border-slate-700" />
+                </div>
+              )}
+            </div>
+
             <button
-              onClick={() => alert("Deposit request submitted for admin review!")}
-              className="px-6 py-3 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-500"
+              type="submit"
+              className="px-6 py-3 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition"
             >
               Submit Deposit Request
             </button>
-          </div>
+          </form>
         )}
 
+        {/* Withdraw Form Section */}
         {activeTab === "withdraw" && (
-          <div
+          <form
+            onSubmit={handleWithdrawSubmit}
             className={`p-6 border rounded-2xl space-y-4 shadow-lg ${
               isDark ? "bg-slate-900 border-amber-500/40" : "bg-white border-amber-400"
             }`}
@@ -182,32 +481,34 @@ function DashboardComponent() {
               <input
                 type="number"
                 placeholder="Withdraw Amount ($)"
+                required
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
                 className={`p-3 text-xs border rounded-xl ${
-                  isDark ? "bg-slate-950 border-slate-800" : "bg-slate-100 border-slate-300"
+                  isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-100 border-slate-300"
                 }`}
               />
               <input
                 type="text"
-                placeholder="EasyPaisa Mobile Number"
+                placeholder="EasyPaisa Account Number"
+                required
                 value={withdrawAccount}
                 onChange={(e) => setWithdrawAccount(e.target.value)}
                 className={`p-3 text-xs border rounded-xl ${
-                  isDark ? "bg-slate-950 border-slate-800" : "bg-slate-100 border-slate-300"
+                  isDark ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-100 border-slate-300"
                 }`}
               />
             </div>
             <button
-              onClick={() => alert("Withdrawal request submitted!")}
-              className="px-6 py-3 text-xs font-bold bg-amber-500 text-slate-950 rounded-xl hover:bg-amber-400"
+              type="submit"
+              className="px-6 py-3 text-xs font-bold bg-amber-500 text-slate-950 rounded-xl hover:bg-amber-400 transition"
             >
               Request Withdrawal
             </button>
-          </div>
+          </form>
         )}
 
-        {/* Detailed Stats Cards Grid (Deposit, Withdraw, Referral, Active Plan) */}
+        {/* Stats Grid */}
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
           <div
             className={`p-4 border rounded-2xl ${
@@ -253,7 +554,7 @@ function DashboardComponent() {
             isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200"
           }`}
         >
-          <p className="text-xs font-medium text-slate-400">Official EasyPaisa Account</p>
+          <p className="text-xs font-medium text-slate-400">Official EasyPaisa Deposit Account</p>
           <div
             className={`flex items-center justify-between p-3 rounded-xl border ${
               isDark ? "bg-slate-950 border-slate-800" : "bg-slate-100 border-slate-300"
@@ -264,46 +565,13 @@ function DashboardComponent() {
               <div className="text-sm font-extrabold tracking-wider">{easyPaisaNumber}</div>
             </div>
             <button
+              type="button"
               onClick={() => handleCopy(easyPaisaNumber, "account")}
               className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition active:scale-95 shadow"
             >
               {copiedAccount ? "Copied!" : "Copy"}
             </button>
           </div>
-        </div>
-
-        {/* Restricted Daily Tasks Panel */}
-        <div
-          className={`p-5 border rounded-2xl shadow-sm space-y-3 ${
-            isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200"
-          }`}
-        >
-          <div className="flex justify-between items-center">
-            <h2 className="text-base font-bold">Daily Tasks ($0.15 Reward)</h2>
-            {!isPaidUser && (
-              <span className="text-xs font-semibold text-amber-500 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-md">
-                🔒 Paid Members Only
-              </span>
-            )}
-          </div>
-          {!isPaidUser ? (
-            <div
-              className={`p-4 border rounded-xl text-center space-y-3 ${
-                isDark ? "bg-slate-950/80 border-slate-800" : "bg-slate-50 border-slate-200"
-              }`}
-            >
-              <p className="text-xs text-slate-400">
-                Buy at least 1 active investment plan to unlock daily tasks reward.
-              </p>
-              <button className="px-5 py-2.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition shadow active:scale-95">
-                Upgrade Plan to Unlock
-              </button>
-            </div>
-          ) : (
-            <button className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow active:scale-95">
-              Claim Daily Task ($0.15)
-            </button>
-          )}
         </div>
 
         {/* Milestone Referral Cash Rewards */}
@@ -329,6 +597,7 @@ function DashboardComponent() {
               }`}
             />
             <button
+              type="button"
               onClick={() => handleCopy(referLink, "ref")}
               className="px-5 py-3 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl whitespace-nowrap transition active:scale-95 shadow"
             >
@@ -395,9 +664,10 @@ function DashboardComponent() {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
                     setActiveTab("deposit");
-                    alert(`To activate ${plan.name}, please deposit ${plan.cost} via EasyPaisa.`);
+                    alert(`To activate ${plan.name}, send ${plan.cost} via EasyPaisa and submit form.`);
                   }}
                   className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow active:scale-95"
                 >
