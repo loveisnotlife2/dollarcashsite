@@ -30,23 +30,24 @@ export function DepositPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadSettings();
+    void loadSettings();
   }, []);
 
   async function loadSettings() {
     const { data, error } = await supabase
-      .from("settings")
-      .select("easypaisa_number,jazzcash_number")
-      .eq("id", true)
-      .single();
+      .from("payment_methods")
+      .select("method,account_number,is_active");
 
     if (error) {
       console.error(error);
       return;
     }
 
-    setEasypaisaNo(data.easypaisa_number);
-    setJazzcashNo(data.jazzcash_number);
+    for (const row of data ?? []) {
+      const name = String(row.method).toLowerCase();
+      if (name === "easypaisa") setEasypaisaNo(row.account_number);
+      if (name === "jazzcash") setJazzcashNo(row.account_number);
+    }
   }
 
   async function submitDeposit(
@@ -74,31 +75,19 @@ export function DepositPage() {
     try {
       setLoading(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        toast.error("Please login again.");
-        return;
-      }
-
-      const { error } = await supabase
-        .from("deposits")
-        .insert({
-          user_id: user.id,
-          amount: numericAmount,
-          method,
-          transaction_id: transactionId.trim(),
-          sender_account: senderAccount.trim(),
-          status: "pending",
-        });
+      const { error } = await supabase.rpc("submit_deposit", {
+        p_usd: numericAmount,
+        p_method: method === "easypaisa" ? "EasyPaisa" : "JazzCash",
+        p_tid: `${transactionId.trim()} (from ${senderAccount.trim()})`,
+        p_screenshot_url: "",
+      });
 
       if (error) {
         console.error(error);
         toast.error(error.message);
         return;
       }
+
 
       toast.success(
         "Deposit submitted. Waiting for admin approval."
