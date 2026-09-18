@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Lock, Phone, UserPlus, LogIn, ArrowRight } from "lucide-react";
 
@@ -12,6 +12,24 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const EMAIL_DOMAIN = "dollarcash.site";
+
+/** Last 10 digits of the mobile number — the single source of truth for both flows. */
+function coreDigits(input: string) {
+  return input.replace(/\D/g, "").slice(-10);
+}
+
+/** Canonical identifier used by BOTH signup and login: 03XXXXXXXXX@dollarcash.site */
+function primaryEmail(input: string) {
+  return `0${coreDigits(input)}@${EMAIL_DOMAIN}`;
+}
+
+/** Legacy formats kept only so older accounts can still sign in. */
+function legacyEmails(input: string) {
+  const core = coreDigits(input);
+  return [`92${core}@${EMAIL_DOMAIN}`, `${core}@${EMAIL_DOMAIN}`];
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
@@ -19,88 +37,75 @@ function AuthPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
-  // Clean 10-digit phone format generator for 100% exact email matching
-  const getCleanPhone = (inputPhone: string) => {
-    const cleaned = inputPhone.replace(/\D/g, "");
-    if (cleaned.startsWith("92")) return cleaned.slice(2);
-    if (cleaned.startsWith("0")) return cleaned.slice(1);
-    return cleaned;
-  };
+  // Keep any referral code from the invite link.
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) localStorage.setItem("dc-ref", ref);
+  }, []);
+
+  async function finish() {
+    const ref = localStorage.getItem("dc-ref");
+    // Idempotent: creates the member record only when it does not exist yet.
+    await supabase.rpc("bootstrap_profile", {
+      p_username: phone.trim(),
+      p_ref_code: ref ?? "",
+    });
+    localStorage.removeItem("dc-ref");
+    void navigate({ to: "/dashboard" });
+  }
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || !password) {
-      toast.error("Please fill in all fields");
+    const core = coreDigits(phone);
+    if (core.length !== 10 || !password) {
+      toast.error("Enter a valid mobile number (e.g. 03001234567) and password");
+      return;
+    }
+    if (isSignUp && password.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
     setLoading(true);
-    const cleanNum = getCleanPhone(phone);
-    
-    // Tries multiple possible generated emails for seamless backward compatibility
-    const targetEmails = [
-      `0${cleanNum}@dollarcash.site`,
-      `92${cleanNum}@dollarcash.site`,
-      `${cleanNum}@dollarcash.site`,
-    ];
+    const email = primaryEmail(phone);
 
     try {
       if (isSignUp) {
-        // Uniform Primary Format: 03xxxxxxxxxx@dollarcash.site
-        const primaryEmail = `0${cleanNum}@dollarcash.site`;
-
-        const { data, error } = await supabase.auth.signUp({
-          email: primaryEmail,
+        const { error } = await supabase.auth.signUp({
+          email,
           password,
-          options: {
-            data: {
-              phone: phone,
-            },
-          },
+          options: { data: { phone: `0${core}` } },
         });
-
         if (error) throw error;
 
-        // Auto Login After Sign-Up
-        const { error: signInErr } = await supabase.auth.signInWithPassword({
-          email: primaryEmail,
-          password,
-        });
+        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInErr) throw signInErr;
 
-        if (signInErr) {
-          toast.success("Account created successfully! Please Sign In.");
-          setIsSignUp(false);
-        } else {
-          toast.success("Account created and logged in!");
-          void navigate({ to: "/dashboard" });
-        }
+        toast.success("Account created and signed in!");
+        await finish();
       } else {
-        // Sign In Flow with Fallback Match
-        let loginSuccess = false;
-        let lastError = null;
-
-        for (const emailAttempt of targetEmails) {
+        let lastError: unknown = null;
+        for (const attempt of [email, ...legacyEmails(phone)]) {
           const { data, error } = await supabase.auth.signInWithPassword({
-            email: emailAttempt,
+            email: attempt,
             password,
           });
-
           if (!error && data.user) {
-            loginSuccess = true;
             toast.success("Signed in successfully!");
-            void navigate({ to: "/dashboard" });
-            break;
-          } else {
-            lastError = error;
+            await finish();
+            return;
           }
+          lastError = error;
         }
-
-        if (!loginSuccess && lastError) {
-          throw lastError;
-        }
+        throw lastError;
       }
-    } catch (err: any) {
-      toast.error(err.message || "Authentication failed. Check your details.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "";
+      toast.error(
+        message.toLowerCase().includes("invalid login")
+          ? "Wrong mobile number or password. Please try again."
+          : message || "Authentication failed. Check your details.",
+      );
     } finally {
       setLoading(false);
     }
@@ -125,7 +130,8 @@ function AuthPage() {
               <Phone className="absolute left-3 top-3 size-4 text-muted-foreground" />
               <Input
                 id="phone"
-                type="text"
+                type="tel"
+                inputMode="numeric"
                 placeholder="03001234567"
                 className="pl-9"
                 value={phone}
