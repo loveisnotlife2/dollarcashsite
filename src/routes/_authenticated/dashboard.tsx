@@ -18,15 +18,15 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   }),
 });
 
-// Real Payment Details (Aap yahan apne asli numbers change kar sakte hain)
+// Real Payment Details Configured
 const PAYMENT_CONFIG = {
   easypaisa: {
-    account_number: "03151390564", // Apna EasyPaisa Number yahan likhein
-    account_title: "Quratulain",    // Apna EasyPaisa Title yahan likhein
+    account_number: "03151390564",
+    account_title: "quratulain",
   },
   jazzcash: {
-    account_number: "03133221347",  // Apna JazzCash Number yahan likhein
-    account_title: "Nadeem Khan",    // Apna JazzCash Title yahan likhein
+    account_number: "03133221347",
+    account_title: "Nadeem khan",
   },
 };
 
