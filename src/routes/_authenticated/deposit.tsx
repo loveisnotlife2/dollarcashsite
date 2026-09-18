@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -17,9 +17,30 @@ export const Route = createFileRoute(
   }),
 });
 
+/*
+ * PAYMENT ACCOUNTS
+ * These are displayed directly on the Deposit page.
+ * They are NOT loaded from the database.
+ */
+const PAYMENT_ACCOUNTS = {
+  easypaisa: {
+    method: "EasyPaisa",
+    number: "03151390564",
+    title: "Quratulain",
+  },
+
+  jazzcash: {
+    method: "JazzCash",
+    number: "03133221347",
+    title: "Nadeem Khan",
+  },
+};
+
 export function DepositPage() {
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("easypaisa");
+
+  const [method, setMethod] =
+    useState<"easypaisa" | "jazzcash">("easypaisa");
 
   const [transactionId, setTransactionId] =
     useState("");
@@ -27,59 +48,24 @@ export function DepositPage() {
   const [senderAccount, setSenderAccount] =
     useState("");
 
-  // Correct default payment accounts
-  const [easypaisaNo, setEasypaisaNo] =
-    useState("03151390564");
-
-  const [easypaisaTitle, setEasypaisaTitle] =
-    useState("Quratulain");
-
-  const [jazzcashNo, setJazzcashNo] =
-    useState("03133221347");
-
-  const [jazzcashTitle, setJazzcashTitle] =
-    useState("Nadeem Khan");
-
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    void loadSettings();
-  }, []);
+  const account =
+    PAYMENT_ACCOUNTS[method];
 
-  async function loadSettings() {
-    const { data, error } = await supabase
-      .from("payment_methods")
-      .select(
-        "method,account_number,account_title,is_active"
+  async function copyAccountNumber() {
+    try {
+      await navigator.clipboard.writeText(
+        account.number
       );
 
-    if (error) {
-      console.error("Payment settings error:", error);
-      return;
-    }
-
-    for (const row of data ?? []) {
-      const name = String(row.method).toLowerCase();
-
-      if (name === "easypaisa") {
-        if (row.account_number) {
-          setEasypaisaNo(row.account_number);
-        }
-
-        if (row.account_title) {
-          setEasypaisaTitle(row.account_title);
-        }
-      }
-
-      if (name === "jazzcash") {
-        if (row.account_number) {
-          setJazzcashNo(row.account_number);
-        }
-
-        if (row.account_title) {
-          setJazzcashTitle(row.account_title);
-        }
-      }
+      toast.success(
+        `${account.method} account number copied!`
+      );
+    } catch {
+      toast.error(
+        "Unable to copy account number."
+      );
     }
   }
 
@@ -101,17 +87,24 @@ export function DepositPage() {
     }
 
     if (!senderAccount.trim()) {
-      toast.error("Enter your sending account.");
+      toast.error(
+        "Enter your sending account number."
+      );
       return;
     }
 
     try {
       setLoading(true);
 
+      /*
+       * Existing backend deposit system.
+       * DO NOT CHANGE.
+       */
       const { error } = await supabase.rpc(
         "submit_deposit",
         {
           p_usd: numericAmount,
+
           p_method:
             method === "easypaisa"
               ? "EasyPaisa"
@@ -124,7 +117,11 @@ export function DepositPage() {
       );
 
       if (error) {
-        console.error("Deposit error:", error);
+        console.error(
+          "Deposit submission error:",
+          error
+        );
+
         toast.error(error.message);
         return;
       }
@@ -137,31 +134,20 @@ export function DepositPage() {
       setTransactionId("");
       setSenderAccount("");
     } catch (error) {
-      console.error("Deposit submission failed:", error);
-      toast.error("Deposit submission failed.");
+      console.error(error);
+
+      toast.error(
+        "Deposit submission failed."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  const isEasyPaisa = method === "easypaisa";
-
-  const receivingAccount = isEasyPaisa
-    ? easypaisaNo
-    : jazzcashNo;
-
-  const receivingTitle = isEasyPaisa
-    ? easypaisaTitle
-    : jazzcashTitle;
-
-  const receivingMethod = isEasyPaisa
-    ? "EasyPaisa"
-    : "JazzCash";
-
   return (
     <AppShell
       title="Deposit"
-      subtitle="Add funds to your DollarCash account"
+      subtitle="Send payment to the selected account"
     >
       <div className="mx-auto w-full max-w-xl">
 
@@ -170,19 +156,19 @@ export function DepositPage() {
           className="surface-card space-y-5 rounded-2xl border border-border p-5 sm:p-6"
         >
 
-          {/* Header */}
+          {/* HEADER */}
           <div>
             <h2 className="text-xl font-bold">
               Make Deposit
             </h2>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              Select a payment method, send the payment,
-              then enter your transaction details.
+              Select your payment method and send the
+              payment to the account shown below.
             </p>
           </div>
 
-          {/* Payment Method */}
+          {/* PAYMENT METHOD */}
           <div className="space-y-2">
             <Label htmlFor="payment-method">
               Payment Method
@@ -192,9 +178,13 @@ export function DepositPage() {
               id="payment-method"
               value={method}
               onChange={(e) =>
-                setMethod(e.target.value)
+                setMethod(
+                  e.target.value as
+                    | "easypaisa"
+                    | "jazzcash"
+                )
               }
-              className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-emerald-500"
+              className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="easypaisa">
                 EasyPaisa
@@ -206,71 +196,64 @@ export function DepositPage() {
             </select>
           </div>
 
-          {/* Selected Payment Account */}
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5">
+          {/* PAYMENT ACCOUNT */}
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
 
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Payment Account
             </p>
 
             <p className="mt-1 text-lg font-bold">
-              {receivingMethod}
+              {account.method}
             </p>
 
-            {/* Account Number */}
+            {/* ACCOUNT NUMBER */}
             <div className="mt-4 rounded-xl border border-border bg-background p-4">
+
               <p className="text-xs text-muted-foreground">
                 Account Number
               </p>
 
               <div className="mt-1 flex items-center justify-between gap-3">
-                <p className="break-all font-mono text-lg font-bold">
-                  {receivingAccount}
+
+                <p className="break-all font-mono text-xl font-bold tracking-wide">
+                  {account.number}
                 </p>
 
                 <button
                   type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(
-                        receivingAccount
-                      );
-
-                      toast.success(
-                        "Account number copied!"
-                      );
-                    } catch {
-                      toast.error(
-                        "Could not copy account number."
-                      );
-                    }
-                  }}
-                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold transition hover:bg-muted"
+                  onClick={copyAccountNumber}
+                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted"
                 >
                   Copy
                 </button>
+
               </div>
             </div>
 
-            {/* Account Title */}
+            {/* ACCOUNT TITLE */}
             <div className="mt-3 rounded-xl border border-border bg-background p-4">
+
               <p className="text-xs text-muted-foreground">
                 Account Title
               </p>
 
-              <p className="mt-1 font-semibold">
-                {receivingTitle}
+              <p className="mt-1 text-base font-bold">
+                {account.title}
               </p>
+
             </div>
 
-            <p className="mt-4 text-xs text-muted-foreground">
-              Send your payment to the account above.
-              After payment, enter the transaction details
-              below.
+            {/* INSTRUCTION */}
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">
+              Please send your payment to the account
+              shown above and then enter your transaction
+              details below.
             </p>
+
           </div>
 
-          {/* Amount */}
+          {/* AMOUNT */}
           <div className="space-y-2">
             <Label htmlFor="deposit-amount">
               Amount
@@ -279,7 +262,7 @@ export function DepositPage() {
             <Input
               id="deposit-amount"
               type="number"
-              min="1"
+              min="0.01"
               step="0.01"
               value={amount}
               onChange={(e) =>
@@ -290,7 +273,7 @@ export function DepositPage() {
             />
           </div>
 
-          {/* Transaction ID */}
+          {/* TRANSACTION ID */}
           <div className="space-y-2">
             <Label htmlFor="transaction-id">
               Transaction ID / TID
@@ -308,10 +291,10 @@ export function DepositPage() {
             />
           </div>
 
-          {/* Sender Account */}
+          {/* SENDING ACCOUNT */}
           <div className="space-y-2">
             <Label htmlFor="sender-account">
-              Your Sending Account
+              Your Sending Account Number
             </Label>
 
             <Input
@@ -327,7 +310,7 @@ export function DepositPage() {
             />
           </div>
 
-          {/* Submit */}
+          {/* SUBMIT */}
           <Button
             type="submit"
             disabled={loading}
