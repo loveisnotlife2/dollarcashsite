@@ -27,7 +27,7 @@ function Card({
   icon: typeof Wallet;
   label: string;
   value: string;
-  hint?: string;
+  hint?: string | undefined;
 }) {
   return (
     <div className="surface-card rounded-xl border border-border p-5">
