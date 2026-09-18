@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Wallet,
   Clock,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,8 +28,19 @@ type Profile = {
   referral_code: string | null;
 };
 
+function money(value: number) {
+  return `$${value.toFixed(2)}`;
+}
+
 function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
+
+  const [totalDeposit, setTotalDeposit] = useState(0);
+  const [earning, setEarning] = useState(0);
+  const [withdraw, setWithdraw] = useState(0);
+  const [referEarning, setReferEarning] = useState(0);
+  const [nextProfit, setNextProfit] = useState(0);
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,19 +61,184 @@ function DashboardPage() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("balance, username, referral_code")
-        .eq("id", user.id)
-        .maybeSingle();
+      /*
+       * PROFILE
+       */
+      const { data: profileData, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("balance, username, referral_code")
+          .eq("id", user.id)
+          .maybeSingle();
 
-      if (error) {
-        console.error("Dashboard profile error:", error);
-        toast.error("Unable to load dashboard.");
-        return;
+      if (profileError) {
+        console.error(profileError);
       }
 
-      setProfile(data);
+      setProfile(profileData);
+
+      /*
+       * TOTAL DEPOSIT
+       *
+       * Only APPROVED deposits are counted.
+       */
+      const { data: deposits, error: depositError } =
+        await supabase
+          .from("deposits")
+          .select("usd_amount")
+          .eq("user_id", user.id)
+          .eq("status", "APPROVED");
+
+      if (depositError) {
+        console.error("Deposit error:", depositError);
+      }
+
+      const depositTotal =
+        deposits?.reduce(
+          (sum, item) => sum + Number(item.usd_amount || 0),
+          0
+        ) ?? 0;
+
+      setTotalDeposit(depositTotal);
+
+      /*
+       * DAILY PROFITS
+       */
+      const { data: dailyProfits, error: profitError } =
+        await supabase
+          .from("daily_profits")
+          .select("amount")
+          .eq("user_id", user.id);
+
+      if (profitError) {
+        console.error("Daily profit error:", profitError);
+      }
+
+      const dailyProfitTotal =
+        dailyProfits?.reduce(
+          (sum, item) => sum + Number(item.amount || 0),
+          0
+        ) ?? 0;
+
+      /*
+       * TASK EARNINGS
+       */
+      const { data: tasks, error: taskError } =
+        await supabase
+          .from("task_completions")
+          .select("reward")
+          .eq("user_id", user.id);
+
+      if (taskError) {
+        console.error("Task error:", taskError);
+      }
+
+      const taskTotal =
+        tasks?.reduce(
+          (sum, item) => sum + Number(item.reward || 0),
+          0
+        ) ?? 0;
+
+      /*
+       * TOTAL EARNING
+       *
+       * Daily profit + paid task rewards.
+       */
+      setEarning(dailyProfitTotal + taskTotal);
+
+      /*
+       * REFERRAL EARNING
+       *
+       * Only paid bonuses are counted.
+       */
+      const { data: referrals, error: referralError } =
+        await supabase
+          .from("referrals")
+          .select("bonus_amount")
+          .eq("referrer_id", user.id)
+          .eq("bonus_paid", true);
+
+      if (referralError) {
+        console.error("Referral error:", referralError);
+      }
+
+      const referralTotal =
+        referrals?.reduce(
+          (sum, item) =>
+            sum + Number(item.bonus_amount || 0),
+          0
+        ) ?? 0;
+
+      setReferEarning(referralTotal);
+
+      /*
+       * APPROVED WITHDRAWALS
+       */
+      const { data: withdrawals, error: withdrawalError } =
+        await supabase
+          .from("withdrawals")
+          .select("usd_amount")
+          .eq("user_id", user.id)
+          .eq("status", "APPROVED");
+
+      if (withdrawalError) {
+        console.error(
+          "Withdrawal error:",
+          withdrawalError
+        );
+      }
+
+      const withdrawalTotal =
+        withdrawals?.reduce(
+          (sum, item) =>
+            sum + Number(item.usd_amount || 0),
+          0
+        ) ?? 0;
+
+      setWithdraw(withdrawalTotal);
+
+      /*
+       * NEXT PROFIT
+       *
+       * Find active investment and its plan's
+       * daily return.
+       */
+      const { data: activeInvestments, error: investmentError } =
+        await supabase
+          .from("investments")
+          .select(`
+            id,
+            plan_id,
+            status,
+            plans (
+              daily_return
+            )
+          `)
+          .eq("user_id", user.id)
+          .eq("status", "ACTIVE");
+
+      if (investmentError) {
+        console.error(
+          "Investment error:",
+          investmentError
+        );
+      }
+
+      let upcomingProfit = 0;
+
+      for (const investment of activeInvestments ?? []) {
+        const plan = Array.isArray(investment.plans)
+          ? investment.plans[0]
+          : investment.plans;
+
+        if (plan?.daily_return) {
+          upcomingProfit += Number(
+            plan.daily_return
+          );
+        }
+      }
+
+      setNextProfit(upcomingProfit);
     } catch (error) {
       console.error("Dashboard error:", error);
       toast.error("Unable to load dashboard.");
@@ -92,7 +269,7 @@ function DashboardPage() {
 
             <div>
               <p className="font-display text-3xl font-extrabold">
-                ${balance.toFixed(2)}
+                {money(balance)}
               </p>
 
               <p className="text-xs text-muted-foreground">
@@ -102,14 +279,14 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* MAIN DASHBOARD CARDS */}
+        {/* DASHBOARD STATS */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
 
           {/* TOTAL DEPOSIT */}
           <DashboardCard
             icon={<ArrowDownToLine className="size-5" />}
             title="Total Deposit"
-            value="$0.00"
+            value={money(totalDeposit)}
             href="/deposit"
           />
 
@@ -117,7 +294,7 @@ function DashboardPage() {
           <DashboardCard
             icon={<TrendingUp className="size-5" />}
             title="Earning"
-            value="$0.00"
+            value={money(earning)}
             href="/earning"
           />
 
@@ -125,7 +302,7 @@ function DashboardPage() {
           <DashboardCard
             icon={<ArrowUpFromLine className="size-5" />}
             title="Withdraw"
-            value="$0.00"
+            value={money(withdraw)}
             href="/withdraw"
           />
 
@@ -133,7 +310,7 @@ function DashboardPage() {
           <DashboardCard
             icon={<Gift className="size-5" />}
             title="Refer Earning"
-            value="$0.00"
+            value={money(referEarning)}
             href="/referral"
           />
 
@@ -141,10 +318,13 @@ function DashboardPage() {
           <DashboardCard
             icon={<Clock className="size-5" />}
             title="Next Profit"
-            value="Pending"
+            value={
+              nextProfit > 0
+                ? money(nextProfit)
+                : "Pending"
+            }
             href="/earning"
           />
-
         </div>
 
         {/* QUICK ACTIONS */}
@@ -183,41 +363,51 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* WELCOME / REFERRAL */}
-        <div className="surface-card rounded-2xl border border-border p-6">
+        {/* REFERRAL */}
+        {profile?.referral_code && (
+          <div className="surface-card rounded-2xl border border-border p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Gift className="size-5" />
+              </div>
 
-          <h2 className="font-display text-lg font-bold">
-            {profile?.username
-              ? `Welcome, ${profile.username}!`
-              : "Welcome to DollarCash!"}
-          </h2>
+              <div>
+                <h2 className="font-display text-lg font-bold">
+                  Referral Code
+                </h2>
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your account is ready. Use the navigation to
-            manage deposits, earnings, withdrawals and
-            referrals.
-          </p>
+                <p className="text-sm text-muted-foreground">
+                  Share your code with friends.
+                </p>
+              </div>
+            </div>
 
-          {profile?.referral_code && (
             <div className="mt-4 rounded-xl border border-border bg-background p-4">
-              <p className="text-xs text-muted-foreground">
-                Your Referral Code
-              </p>
-
-              <p className="mt-1 font-mono text-lg font-bold">
+              <p className="font-mono text-lg font-bold">
                 {profile.referral_code}
               </p>
             </div>
-          )}
-
-        </div>
-
-        {/* LOADING */}
-        {loading && (
-          <p className="text-center text-sm text-muted-foreground">
-            Loading dashboard...
-          </p>
+          </div>
         )}
+
+        {/* REFRESH */}
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => void loadDashboard()}
+            disabled={loading}
+            className="rounded-xl"
+          >
+            <RefreshCw
+              className={`mr-2 size-4 ${
+                loading ? "animate-spin" : ""
+              }`}
+            />
+            {loading
+              ? "Loading..."
+              : "Refresh Dashboard"}
+          </Button>
+        </div>
 
       </div>
     </AppShell>
