@@ -1,170 +1,256 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Gift,
+  TrendingUp,
+  Wallet,
+  Clock,
+} from "lucide-react";
 import { toast } from "sonner";
-import { ArrowUpRight, CheckCircle2, Copy } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/_authenticated/deposit")({
-  component: DepositPage,
+export const Route = createFileRoute("/_authenticated/dashboard")({
+  component: DashboardPage,
   head: () => ({
-    meta: [{ title: "Deposit · DollarCash" }],
+    meta: [{ title: "Dashboard · DollarCash" }],
   }),
 });
 
-const MERCHANTS = {
-  easypaisa: {
-    name: "EasyPaisa",
-    number: "03151390564",
-    title: "quratulain",
-  },
-  jazzcash: {
-    name: "JazzCash",
-    number: "03133221347",
-    title: "Nadeem khan",
-  },
+type Profile = {
+  balance: number | null;
+  username: string | null;
+  referral_code: string | null;
 };
 
-function DepositPage() {
-  const [method, setMethod] = useState<"easypaisa" | "jazzcash">("easypaisa");
-  const [amount, setAmount] = useState("");
-  const [tid, setTid] = useState("");
-  const [senderAccount, setSenderAccount] = useState("");
-  const [loading, setLoading] = useState(false);
+function DashboardPage() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const activeMerchant = MERCHANTS[method];
+  useEffect(() => {
+    void loadDashboard();
+  }, []);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(activeMerchant.number);
-    toast.success("Account number copied!");
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!amount || !tid || !senderAccount) {
-      toast.error("Please fill in all fields");
-      return;
-    }
-
-    setLoading(true);
+  async function loadDashboard() {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      const { error } = await supabase.from("deposits").insert({
-        user_id: userData.user?.id,
-        amount: parseFloat(amount),
-        method: activeMerchant.name,
-        transaction_id: tid,
-        sender_account: senderAccount,
-        status: "pending",
-      });
+      setLoading(true);
 
-      if (error) throw error;
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      toast.success("Deposit request submitted successfully!");
-      setAmount("");
-      setTid("");
-      setSenderAccount("");
-    } catch (err: any) {
-      toast.success("Deposit request submitted for review!");
-      setAmount("");
-      setTid("");
-      setSenderAccount("");
+      if (userError || !user) {
+        toast.error("Please sign in again.");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("balance, username, referral_code")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Dashboard profile error:", error);
+        toast.error("Unable to load dashboard.");
+        return;
+      }
+
+      setProfile(data);
+    } catch (error) {
+      console.error("Dashboard error:", error);
+      toast.error("Unable to load dashboard.");
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  const balance = Number(profile?.balance ?? 0);
 
   return (
-    <AppShell title="Deposit" subtitle="Send payment to the account below">
-      <div className="max-w-xl mx-auto space-y-6">
-        {/* Payment Account Display */}
-        <div className="surface-card p-6 rounded-2xl border border-border space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Payment Account ({activeMerchant.name})
+    <AppShell
+      title="Dashboard"
+      subtitle="Welcome back to DollarCash"
+    >
+      <div className="mx-auto w-full max-w-6xl space-y-6">
+
+        {/* BALANCE */}
+        <div className="surface-card rounded-2xl border border-border p-6">
+          <p className="text-sm text-muted-foreground">
+            Available Balance
           </p>
-          <div className="flex items-center justify-between bg-background/50 p-4 rounded-xl border border-border">
+
+          <div className="mt-2 flex items-center gap-3">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Wallet className="size-6" />
+            </div>
+
             <div>
-              <p className="text-2xl font-bold font-mono text-foreground">
-                {activeMerchant.number}
+              <p className="font-display text-3xl font-extrabold">
+                ${balance.toFixed(2)}
               </p>
-              <p className="text-sm text-muted-foreground font-medium">
-                Title: <span className="text-foreground">{activeMerchant.title}</span>
+
+              <p className="text-xs text-muted-foreground">
+                Your current DollarCash balance
               </p>
             </div>
-            <Button size="icon" variant="outline" onClick={handleCopy}>
-              <Copy className="size-4" />
-            </Button>
           </div>
         </div>
 
-        {/* Deposit Form */}
-        <form onSubmit={handleSubmit} className="surface-card p-6 rounded-2xl border border-border space-y-4">
-          <div className="space-y-2">
-            <Label>Payment Method</Label>
-            <Select
-              value={method}
-              onValueChange={(v) => setMethod(v as "easypaisa" | "jazzcash")}
+        {/* MAIN DASHBOARD CARDS */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+
+          {/* TOTAL DEPOSIT */}
+          <DashboardCard
+            icon={<ArrowDownToLine className="size-5" />}
+            title="Total Deposit"
+            value="$0.00"
+            href="/deposit"
+          />
+
+          {/* EARNING */}
+          <DashboardCard
+            icon={<TrendingUp className="size-5" />}
+            title="Earning"
+            value="$0.00"
+            href="/earning"
+          />
+
+          {/* WITHDRAW */}
+          <DashboardCard
+            icon={<ArrowUpFromLine className="size-5" />}
+            title="Withdraw"
+            value="$0.00"
+            href="/withdraw"
+          />
+
+          {/* REFER EARNING */}
+          <DashboardCard
+            icon={<Gift className="size-5" />}
+            title="Refer Earning"
+            value="$0.00"
+            href="/referral"
+          />
+
+          {/* NEXT PROFIT */}
+          <DashboardCard
+            icon={<Clock className="size-5" />}
+            title="Next Profit"
+            value="Pending"
+            href="/earning"
+          />
+
+        </div>
+
+        {/* QUICK ACTIONS */}
+        <div className="surface-card rounded-2xl border border-border p-6">
+          <h2 className="font-display text-lg font-bold">
+            Quick Actions
+          </h2>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your DollarCash account.
+          </p>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
+            <Button
+              asChild
+              className="h-11 w-full rounded-xl"
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select Method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="easypaisa">EasyPaisa</SelectItem>
-                <SelectItem value="jazzcash">JazzCash</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <Link to="/deposit">
+                <ArrowDownToLine className="mr-2 size-4" />
+                Deposit
+              </Link>
+            </Button>
 
-          <div className="space-y-2">
-            <Label>Amount (USD or PKR)</Label>
-            <Input
-              type="number"
-              placeholder="Enter amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-            />
-          </div>
+            <Button
+              asChild
+              variant="outline"
+              className="h-11 w-full rounded-xl"
+            >
+              <Link to="/withdraw">
+                <ArrowUpFromLine className="mr-2 size-4" />
+                Withdraw
+              </Link>
+            </Button>
 
-          <div className="space-y-2">
-            <Label>Transaction ID (TID)</Label>
-            <Input
-              type="text"
-              placeholder="Enter Transaction ID"
-              value={tid}
-              onChange={(e) => setTid(e.target.value)}
-              required
-            />
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label>Your Sending Account Number</Label>
-            <Input
-              type="text"
-              placeholder="03xxxxxxxxxx"
-              value={senderAccount}
-              onChange={(e) => setSenderAccount(e.target.value)}
-              required
-            />
-          </div>
+        {/* WELCOME / REFERRAL */}
+        <div className="surface-card rounded-2xl border border-border p-6">
 
-          <Button type="submit" className="w-full font-semibold" disabled={loading}>
-            {loading ? "Submitting..." : "Submit Deposit Request"}
-          </Button>
-        </form>
+          <h2 className="font-display text-lg font-bold">
+            {profile?.username
+              ? `Welcome, ${profile.username}!`
+              : "Welcome to DollarCash!"}
+          </h2>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your account is ready. Use the navigation to
+            manage deposits, earnings, withdrawals and
+            referrals.
+          </p>
+
+          {profile?.referral_code && (
+            <div className="mt-4 rounded-xl border border-border bg-background p-4">
+              <p className="text-xs text-muted-foreground">
+                Your Referral Code
+              </p>
+
+              <p className="mt-1 font-mono text-lg font-bold">
+                {profile.referral_code}
+              </p>
+            </div>
+          )}
+
+        </div>
+
+        {/* LOADING */}
+        {loading && (
+          <p className="text-center text-sm text-muted-foreground">
+            Loading dashboard...
+          </p>
+        )}
+
       </div>
     </AppShell>
+  );
+}
+
+function DashboardCard({
+  icon,
+  title,
+  value,
+  href,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: string;
+  href: string;
+}) {
+  return (
+    <Link
+      to={href}
+      className="surface-card rounded-2xl border border-border p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        {icon}
+      </div>
+
+      <p className="mt-3 text-xs font-medium text-muted-foreground">
+        {title}
+      </p>
+
+      <p className="mt-1 text-lg font-bold">
+        {value}
+      </p>
+    </Link>
   );
 }
