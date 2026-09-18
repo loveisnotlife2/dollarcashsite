@@ -19,14 +19,22 @@ function AuthPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
-  // Phone Format Sanitizer (e.g., 03001234567 -> 923001234567@dollarcash.site)
-  const getDummyEmail = (inputPhone: string) => {
+  // Phone to Dummy Email Helper (Tries both 03... and 923... formats)
+  const getDummyEmails = (inputPhone: string) => {
     const cleaned = inputPhone.replace(/\D/g, "");
-    let formatted = cleaned;
-    if (cleaned.startsWith("0")) {
-      formatted = "92" + cleaned.slice(1);
+    let raw = cleaned;
+    if (cleaned.startsWith("92")) {
+      raw = "0" + cleaned.slice(2);
+    } else if (!cleaned.startsWith("0") && cleaned.length === 10) {
+      raw = "0" + cleaned;
     }
-    return `${formatted}@dollarcash.site`;
+
+    const formatted92 = "92" + raw.replace(/^0/, "");
+    return [
+      `${raw}@dollarcash.site`,
+      `${formatted92}@dollarcash.site`,
+      `${cleaned}@dollarcash.site`
+    ];
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -37,13 +45,13 @@ function AuthPage() {
     }
 
     setLoading(true);
-    const email = getDummyEmail(phone);
+    const emails = getDummyEmails(phone);
 
     try {
       if (isSignUp) {
-        // Sign Up Flow
+        // Sign Up Flow (Uses Primary Formatted Email)
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: emails[0],
           password,
           options: {
             data: {
@@ -56,22 +64,31 @@ function AuthPage() {
 
         if (data.user) {
           toast.success("Account created successfully!");
-          // Direct Route to /dashboard
           void navigate({ to: "/dashboard" });
         }
       } else {
-        // Sign In Flow
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        // Sign In Flow (Tries multiple format emails to avoid Invalid Credentials)
+        let loginSuccess = false;
+        let lastError = null;
 
-        if (error) throw error;
+        for (const emailAttempt of emails) {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: emailAttempt,
+            password,
+          });
 
-        if (data.user) {
-          toast.success("Signed in successfully!");
-          // Direct Route to /dashboard
-          void navigate({ to: "/dashboard" });
+          if (!error && data.user) {
+            loginSuccess = true;
+            toast.success("Signed in successfully!");
+            void navigate({ to: "/dashboard" });
+            break;
+          } else {
+            lastError = error;
+          }
+        }
+
+        if (!loginSuccess && lastError) {
+          throw lastError;
         }
       }
     } catch (err: any) {
