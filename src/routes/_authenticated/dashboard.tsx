@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Wallet, TrendingUp, Smartphone } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
-import { useProfile, usePaymentMethods, useRate, usd } from "@/lib/dollarcash";
+import { useProfile, useRate, usd } from "@/lib/dollarcash";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -17,18 +17,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
     ],
   }),
 });
-
-// Real Payment Details Configured
-const PAYMENT_CONFIG = {
-  easypaisa: {
-    account_number: "03151390564",
-    account_title: "quratulain",
-  },
-  jazzcash: {
-    account_number: "03133221347",
-    account_title: "Nadeem khan",
-  },
-};
 
 function Card({
   icon: Icon,
@@ -56,13 +44,6 @@ function Card({
 function DashboardPage() {
   const { data: profile } = useProfile();
   const { data: rate } = useRate();
-  const { data: methods } = usePaymentMethods();
-
-  const find = (name: string) =>
-    methods?.find((m) => String(m.method).toLowerCase() === name);
-    
-  const easypaisa = find("easypaisa");
-  const jazzcash = find("jazzcash");
 
   return (
     <AppShell title="Dashboard" subtitle="Your account at a glance">
@@ -72,14 +53,14 @@ function DashboardPage() {
         <Card
           icon={Smartphone}
           label="EasyPaisa"
-          value={easypaisa?.account_number || PAYMENT_CONFIG.easypaisa.account_number}
-          hint={easypaisa?.account_title || PAYMENT_CONFIG.easypaisa.account_title}
+          value="03151390564"
+          hint="quratulain"
         />
         <Card
           icon={Smartphone}
           label="JazzCash"
-          value={jazzcash?.account_number || PAYMENT_CONFIG.jazzcash.account_number}
-          hint={jazzcash?.account_title || PAYMENT_CONFIG.jazzcash.account_title}
+          value="03133221347"
+          hint="Nadeem khan"
         />
       </div>
     </AppShell>
