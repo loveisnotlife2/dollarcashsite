@@ -18,6 +18,18 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   }),
 });
 
+// Real Payment Details (Aap yahan apne asli numbers change kar sakte hain)
+const PAYMENT_CONFIG = {
+  easypaisa: {
+    account_number: "03151390564", // Apna EasyPaisa Number yahan likhein
+    account_title: "Quratulain",    // Apna EasyPaisa Title yahan likhein
+  },
+  jazzcash: {
+    account_number: "03133221347",  // Apna JazzCash Number yahan likhein
+    account_title: "Nadeem Khan",    // Apna JazzCash Title yahan likhein
+  },
+};
+
 function Card({
   icon: Icon,
   label,
@@ -48,6 +60,7 @@ function DashboardPage() {
 
   const find = (name: string) =>
     methods?.find((m) => String(m.method).toLowerCase() === name);
+    
   const easypaisa = find("easypaisa");
   const jazzcash = find("jazzcash");
 
@@ -59,14 +72,14 @@ function DashboardPage() {
         <Card
           icon={Smartphone}
           label="EasyPaisa"
-          value={easypaisa?.account_number ?? "—"}
-          hint={easypaisa?.account_title ?? undefined}
+          value={easypaisa?.account_number || PAYMENT_CONFIG.easypaisa.account_number}
+          hint={easypaisa?.account_title || PAYMENT_CONFIG.easypaisa.account_title}
         />
         <Card
           icon={Smartphone}
           label="JazzCash"
-          value={jazzcash?.account_number ?? "—"}
-          hint={jazzcash?.account_title ?? undefined}
+          value={jazzcash?.account_number || PAYMENT_CONFIG.jazzcash.account_number}
+          hint={jazzcash?.account_title || PAYMENT_CONFIG.jazzcash.account_title}
         />
       </div>
     </AppShell>
