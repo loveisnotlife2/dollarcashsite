@@ -19,21 +19,12 @@ function AuthPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
-  const getDummyEmails = (inputPhone: string) => {
+  // Clean 10-digit phone format generator for 100% exact email matching
+  const getCleanPhone = (inputPhone: string) => {
     const cleaned = inputPhone.replace(/\D/g, "");
-    let raw = cleaned;
-    if (cleaned.startsWith("92")) {
-      raw = "0" + cleaned.slice(2);
-    } else if (!cleaned.startsWith("0") && cleaned.length === 10) {
-      raw = "0" + cleaned;
-    }
-
-    const formatted92 = "92" + raw.replace(/^0/, "");
-    return [
-      `${raw}@dollarcash.site`,
-      `${formatted92}@dollarcash.site`,
-      `${cleaned}@dollarcash.site`
-    ];
+    if (cleaned.startsWith("92")) return cleaned.slice(2);
+    if (cleaned.startsWith("0")) return cleaned.slice(1);
+    return cleaned;
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -44,43 +35,51 @@ function AuthPage() {
     }
 
     setLoading(true);
-    const emails = getDummyEmails(phone);
+    const cleanNum = getCleanPhone(phone);
+    
+    // Tries multiple possible generated emails for seamless backward compatibility
+    const targetEmails = [
+      `0${cleanNum}@dollarcash.site`,
+      `92${cleanNum}@dollarcash.site`,
+      `${cleanNum}@dollarcash.site`,
+    ];
 
     try {
       if (isSignUp) {
-        // Auto-confirm flag passed during sign up
+        // Uniform Primary Format: 03xxxxxxxxxx@dollarcash.site
+        const primaryEmail = `0${cleanNum}@dollarcash.site`;
+
         const { data, error } = await supabase.auth.signUp({
-          email: emails[0],
+          email: primaryEmail,
           password,
           options: {
             data: {
               phone: phone,
-              email_confirmed: true, // Soft bypass flag
             },
           },
         });
 
         if (error) throw error;
 
-        // Auto sign-in immediately after registration to set active session
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: emails[0],
+        // Auto Login After Sign-Up
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email: primaryEmail,
           password,
         });
 
-        if (signInError && signInError.message.includes("Email not confirmed")) {
-          toast.error("Account created! Please Sign In directly.");
+        if (signInErr) {
+          toast.success("Account created successfully! Please Sign In.");
           setIsSignUp(false);
-          return;
+        } else {
+          toast.success("Account created and logged in!");
+          void navigate({ to: "/dashboard" });
         }
-
-        toast.success("Account created successfully!");
-        void navigate({ to: "/dashboard" });
       } else {
+        // Sign In Flow with Fallback Match
         let loginSuccess = false;
         let lastError = null;
 
-        for (const emailAttempt of emails) {
+        for (const emailAttempt of targetEmails) {
           const { data, error } = await supabase.auth.signInWithPassword({
             email: emailAttempt,
             password,
@@ -97,12 +96,7 @@ function AuthPage() {
         }
 
         if (!loginSuccess && lastError) {
-          // If unconfirmed error occurs on old credentials, handle gracefully
-          if (lastError.message.includes("Email not confirmed")) {
-            toast.info("Updating registration flow... Try Sign In again in 10 seconds.");
-          } else {
-            throw lastError;
-          }
+          throw lastError;
         }
       }
     } catch (err: any) {
