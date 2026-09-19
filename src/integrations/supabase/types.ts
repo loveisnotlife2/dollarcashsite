@@ -257,6 +257,30 @@ export type Database = {
           },
         ]
       }
+      referral_milestone_claims: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          milestone: number
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          milestone: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          milestone?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       referrals: {
         Row: {
           bonus_amount: number
@@ -417,8 +441,10 @@ export type Database = {
       }
       buy_plan: { Args: { p_plan_id: string }; Returns: string }
       claim_admin_access: { Args: never; Returns: boolean }
+      claim_referral_milestones: { Args: never; Returns: number }
       complete_task: { Args: { p_investment_id: string }; Returns: number }
       distribute_daily_profits: { Args: never; Returns: number }
+      is_admin: { Args: never; Returns: boolean }
       normalize_phone: { Args: { p: string }; Returns: string }
       request_withdrawal: {
         Args: {
