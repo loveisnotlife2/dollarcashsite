@@ -56,6 +56,26 @@ export function useProfile() {
   });
 }
 
+/**
+ * Admin check. Authorization is enforced in the database (RLS + SECURITY DEFINER
+ * functions); this only decides whether the admin UI is offered.
+ */
+export function useIsAdmin() {
+  return useQuery({
+    queryKey: ["is-admin"],
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return false;
+      // Owner phone numbers listed in the database can claim the admin role.
+      await supabase.rpc("claim_admin_access");
+      const { data, error } = await supabase.rpc("is_admin");
+      if (error) return false;
+      return Boolean(data);
+    },
+    staleTime: 60_000,
+  });
+}
+
 export function usePlans() {
   return useQuery({
     queryKey: ["plans"],
